@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
-import { User, Star, Clock, X, Lock, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { User, Star, Clock, X, Shield, LogOut, Loader2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import SentimentBadge from "../components/SentimentBadge";
 import { api, type Coin } from "../lib/api";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
+import { getUserCreatedAt } from "../lib/auth";
 
 export default function Profile() {
   const { watchlist, toggleWatchlist, searchHistory, clearSearchHistory } = useApp();
+  const { session, logout } = useAuth();
+  const navigate = useNavigate();
   const [watchlistCoins, setWatchlistCoins] = useState<Coin[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -19,24 +23,48 @@ export default function Profile() {
       .finally(() => setLoading(false));
   }, [watchlist]);
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const username  = session?.username ?? 'Guest';
+  const memberSince = session ? getUserCreatedAt(session.username) : '';
+
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
 
       {/* Account info */}
-      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6 mb-6 flex items-center gap-4">
-        <div className="w-14 h-14 bg-[#4B6BFB] rounded-full flex items-center justify-center flex-shrink-0">
-          <User size={24} className="text-white" />
+      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6 mb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-[#4B6BFB] rounded-full flex items-center justify-center flex-shrink-0">
+            <User size={24} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold text-white">{username}</h1>
+            {memberSince && (
+              <p className="text-[#8A8FA8] text-sm">Member since {memberSince}</p>
+            )}
+            <div className="flex items-center gap-1.5 mt-1">
+              <Shield size={12} className="text-[#00C896]" />
+              <span className="text-[#00C896] text-xs font-medium">2FA enabled</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 flex-shrink-0">
+            <Link
+              to="/forgot-password"
+              className="flex items-center gap-1.5 text-xs text-[#4B6BFB] hover:underline"
+            >
+              <Shield size={12} /> Change Password
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs text-[#8A8FA8] hover:text-[#FF4D4D] transition-colors"
+            >
+              <LogOut size={12} /> Sign Out
+            </button>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-white">CryptoUser</h1>
-          <p className="text-[#8A8FA8] text-sm">Member since June 2025</p>
-        </div>
-        <Link
-          to="/forgot-password"
-          className="flex items-center gap-1.5 text-sm text-[#4B6BFB] hover:underline flex-shrink-0"
-        >
-          <Lock size={13} /> Change Password
-        </Link>
       </div>
 
       {/* Watchlist */}

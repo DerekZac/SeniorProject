@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AppProvider } from "./context/AppContext";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Results from "./pages/Results";
@@ -14,31 +16,33 @@ import Profile from "./pages/Profile";
 
 export default function App() {
   return (
-    <AppProvider>
-      <Router>
-        <div className="min-h-screen bg-[#0D0F14] text-white">
-          <Navbar />
-          <Routes>
-            {/* Primary flow */}
-            <Route path="/" element={<Home />} />
-            <Route path="/results/:coin" element={<Results />} />
-            <Route path="/coin/:coin" element={<CoinDetail />} />
+    <AuthProvider>
+      <AppProvider>
+        <Router>
+          <div className="min-h-screen bg-[#0D0F14] text-white">
+            <Navbar />
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/results/:coin" element={<Results />} />
+              <Route path="/coin/:coin" element={<CoinDetail />} />
+              <Route path="/compare" element={<Compare />} />
+              <Route path="/news" element={<News />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
 
-            {/* Secondary flows */}
-            <Route path="/compare" element={<Compare />} />
-            <Route path="/watchlist" element={<Watchlist />} />
-            <Route path="/news" element={<News />} />
-
-            {/* Auth */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-
-            {/* Account */}
-            <Route path="/profile" element={<Profile />} />
-          </Routes>
-        </div>
-      </Router>
-    </AppProvider>
+              {/* Protected routes — require authentication */}
+              <Route path="/watchlist" element={
+                <ProtectedRoute><Watchlist /></ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute><Profile /></ProtectedRoute>
+              } />
+            </Routes>
+          </div>
+        </Router>
+      </AppProvider>
+    </AuthProvider>
   );
 }
