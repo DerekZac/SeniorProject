@@ -1,108 +1,151 @@
-import { useParams } from "react-router-dom";
-import { ArrowUp } from "lucide-react";
-import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
-} from "recharts";
+/**
+ * Screen 2 — Coin Search Results
+ *
+ * Shows the high-level sentiment verdict, confidence meter, keyword pills,
+ * and subreddit breakdown. Links to Screen 3 (CoinDetail) for the full picture.
+ */
+import { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import { ArrowRight, Star } from "lucide-react";
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import SentimentBadge from "../components/SentimentBadge";
-import {
-  mockSentimentHistory, mockSubredditBreakdown, mockPosts, mockKeywords
-} from "../lib/mockData";
+import { api, type CoinSentimentResult } from "../lib/api";
+import { useApp } from "../context/AppContext";
 
 export default function Results() {
-  const { coin } = useParams();
-  const coinName = coin ? coin.charAt(0).toUpperCase() + coin.slice(1) : "Bitcoin";
+  const { coin } = useParams<{ coin: string }>();
+  const [data, setData] = useState<CoinSentimentResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { isWatchlisted, toggleWatchlist } = useApp();
 
-  const sentiment = "Bullish" as const;
-  const confidence = 87;
-  const price = "$67,234";
-  const change = 2.4;
+  useEffect(() => {
+    setLoading(true);
+    api.getCoinSentiment(coin ?? "bitcoin").then(d => {
+      setData(d);
+      setLoading(false);
+    });
+  }, [coin]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-[#4B6BFB] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-[#8A8FA8] text-sm">Analyzing Reddit sentiment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { name, ticker, sentiment, confidence, price, change, keywords, subredditBreakdown } = data;
+  const changePositive = change >= 0;
+  const sentimentColor =
+    sentiment === "Bullish" ? "#00C896" : sentiment === "Bearish" ? "#FF4D4D" : "#FFB830";
+  const watchlisted = isWatchlisted(ticker);
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
+    <div className="max-w-4xl mx-auto px-6 py-10">
 
-      {/* Header */}
-      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6 mb-6">
-        <div className="flex items-start justify-between flex-wrap gap-4">
+      {/* Sentiment Verdict Card */}
+      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-2xl p-8 mb-6 text-center relative">
+        {/* Watchlist star */}
+        <button
+          onClick={() => toggleWatchlist(ticker)}
+          className={`absolute top-5 right-5 p-2 rounded-lg border transition-all ${
+            watchlisted
+              ? "bg-[#FFB830]/10 border-[#FFB830]/40 text-[#FFB830]"
+              : "border-[#2A2D3A] text-[#8A8FA8] hover:text-white hover:border-[#4B6BFB]/40"
+          }`}
+        >
+          <Star size={17} fill={watchlisted ? "currentColor" : "none"} />
+        </button>
+
+        <div className="mb-5">
+          <p className="text-[#8A8FA8] text-sm mb-3 uppercase tracking-widest font-medium">Sentiment Verdict</p>
+          <SentimentBadge sentiment={sentiment} size="lg" />
+        </div>
+
+        <div className="flex items-center justify-center gap-8 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-1">{coinName}</h1>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl font-bold text-white">{price}</span>
-              <span className="text-[#00C896] font-medium">+{change}%</span>
+            <div className="text-3xl font-bold text-white">{price}</div>
+            <div className={`text-sm font-medium mt-0.5 ${changePositive ? "text-[#00C896]" : "text-[#FF4D4D]"}`}>
+              {changePositive ? "+" : ""}{change}% (24h)
             </div>
           </div>
-          <div className="text-right">
-            <SentimentBadge sentiment={sentiment} confidence={confidence} size="lg" />
-            <div className="mt-2">
-              <div className="w-48 bg-[#2A2D3A] rounded-full h-2 mt-2">
-                <div
-                  className="bg-[#00C896] h-2 rounded-full transition-all"
-                  style={{ width: `${confidence}%` }}
-                />
-              </div>
-              <p className="text-[#8A8FA8] text-xs mt-1">Confidence Score</p>
-            </div>
+          <div className="w-px h-12 bg-[#2A2D3A]" />
+          <div>
+            <div className="text-3xl font-bold" style={{ color: sentimentColor }}>{confidence}%</div>
+            <div className="text-[#8A8FA8] text-sm mt-0.5">Confidence</div>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="max-w-sm mx-auto">
+          <div className="w-full bg-[#2A2D3A] rounded-full h-3 overflow-hidden">
+            <div
+              className="h-3 rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${confidence}%`, background: sentimentColor }}
+            />
+          </div>
+          <div className="flex justify-between text-[#8A8FA8] text-xs mt-1.5">
+            <span>Bearish</span>
+            <span className="font-medium" style={{ color: sentimentColor }}>Confidence Score</span>
+            <span>Bullish</span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-
-        {/* Keywords */}
-        <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-4">Top Keywords Found</h2>
-          <div className="mb-3">
-            <p className="text-[#8A8FA8] text-xs mb-2">BULLISH</p>
+      {/* Keywords */}
+      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6 mb-6">
+        <h2 className="text-white font-semibold mb-5">Top Keywords Found in Reddit Posts</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <p className="text-[#00C896] text-xs font-semibold mb-3 uppercase tracking-widest">Bullish Signals</p>
             <div className="flex flex-wrap gap-2">
-              {mockKeywords.bullish.map((kw) => (
-                <span key={kw} className="bg-[#00C896]/10 text-[#00C896] border border-[#00C896]/30 text-xs px-3 py-1 rounded-full">
+              {keywords.bullish.map((kw) => (
+                <span
+                  key={kw}
+                  className="bg-[#00C896]/10 text-[#00C896] border border-[#00C896]/30 text-sm px-4 py-1.5 rounded-full font-medium"
+                >
                   {kw}
                 </span>
               ))}
             </div>
           </div>
           <div>
-            <p className="text-[#8A8FA8] text-xs mb-2">BEARISH</p>
+            <p className="text-[#FF4D4D] text-xs font-semibold mb-3 uppercase tracking-widest">Bearish Signals</p>
             <div className="flex flex-wrap gap-2">
-              {mockKeywords.bearish.map((kw) => (
-                <span key={kw} className="bg-[#FF4D4D]/10 text-[#FF4D4D] border border-[#FF4D4D]/30 text-xs px-3 py-1 rounded-full">
+              {keywords.bearish.map((kw) => (
+                <span
+                  key={kw}
+                  className="bg-[#FF4D4D]/10 text-[#FF4D4D] border border-[#FF4D4D]/30 text-sm px-4 py-1.5 rounded-full font-medium"
+                >
                   {kw}
                 </span>
               ))}
             </div>
           </div>
-        </div>
-
-        {/* Sentiment History */}
-        <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-4">Sentiment History (7 Days)</h2>
-          <ResponsiveContainer width="100%" height={140}>
-            <LineChart data={mockSentimentHistory}>
-              <XAxis dataKey="day" stroke="#8A8FA8" tick={{ fontSize: 11 }} />
-              <YAxis stroke="#8A8FA8" tick={{ fontSize: 11 }} domain={[0, 100]} />
-              <Tooltip
-                contentStyle={{ background: "#1A1D27", border: "1px solid #2A2D3A", borderRadius: "8px" }}
-                labelStyle={{ color: "#fff" }}
-              />
-              <Line type="monotone" dataKey="score" stroke="#4B6BFB" strokeWidth={2} dot={{ fill: "#4B6BFB", r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
       {/* Subreddit Breakdown */}
-      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-5 mb-6">
-        <h2 className="text-white font-semibold mb-4">Subreddit Breakdown</h2>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={mockSubredditBreakdown} layout="vertical">
-            <XAxis type="number" domain={[0, 100]} stroke="#8A8FA8" tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="subreddit" stroke="#8A8FA8" tick={{ fontSize: 11 }} width={130} />
+      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-6 mb-6">
+        <h2 className="text-white font-semibold mb-5">Subreddit Breakdown</h2>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={subredditBreakdown} layout="vertical" margin={{ left: 0, right: 16 }}>
+            <XAxis type="number" domain={[0, 100]} stroke="#8A8FA8" tick={{ fontSize: 11 }} tickLine={false} />
+            <YAxis type="category" dataKey="subreddit" stroke="#8A8FA8" tick={{ fontSize: 11 }} width={140} tickLine={false} />
             <Tooltip
-              contentStyle={{ background: "#1A1D27", border: "1px solid #2A2D3A", borderRadius: "8px" }}
+              contentStyle={{ background: "#0D0F14", border: "1px solid #2A2D3A", borderRadius: "8px" }}
+              labelStyle={{ color: "#fff" }}
+              formatter={(v: number) => [`${v}%`, "Score"]}
             />
             <Bar dataKey="score" radius={[0, 4, 4, 0]}>
-              {mockSubredditBreakdown.map((entry, index) => (
+              {subredditBreakdown.map((entry, i) => (
                 <Cell
-                  key={index}
+                  key={i}
                   fill={entry.score >= 60 ? "#00C896" : entry.score >= 45 ? "#FFB830" : "#FF4D4D"}
                 />
               ))}
@@ -111,29 +154,13 @@ export default function Results() {
         </ResponsiveContainer>
       </div>
 
-      {/* Post Feed */}
-      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white font-semibold">Reddit Posts</h2>
-          <div className="flex gap-2">
-            <button className="bg-[#4B6BFB] text-white text-xs px-3 py-1.5 rounded-lg font-medium">Hot</button>
-            <button className="text-[#8A8FA8] text-xs px-3 py-1.5 rounded-lg hover:text-white hover:bg-[#2A2D3A] transition-colors">New</button>
-          </div>
-        </div>
-        <div className="flex flex-col gap-3">
-          {mockPosts.map((post) => (
-            <div key={post.id} className="border border-[#2A2D3A] rounded-lg p-4 hover:border-[#4B6BFB]/30 transition-colors">
-              <p className="text-white text-sm mb-2">{post.title}</p>
-              <div className="flex items-center gap-3 text-[#8A8FA8] text-xs">
-                <span className="flex items-center gap-1"><ArrowUp size={12} />{post.upvotes.toLocaleString()}</span>
-                <span>{post.subreddit}</span>
-                <span>{post.timeAgo}</span>
-                <SentimentBadge sentiment={post.sentiment} size="sm" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* CTA to Coin Detail */}
+      <Link
+        to={`/coin/${coin}`}
+        className="flex items-center justify-center gap-2 w-full bg-[#4B6BFB] text-white py-3.5 rounded-xl font-semibold hover:bg-[#3a5ae8] transition-colors"
+      >
+        View Full {name} Detail <ArrowRight size={18} />
+      </Link>
     </div>
   );
 }
