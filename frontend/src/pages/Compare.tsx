@@ -2,13 +2,23 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import SentimentBadge from "../components/SentimentBadge";
 import { mockKeywords, mockSubredditBreakdown } from "../lib/mockData";
+import type { Sentiment } from "../lib/api";
 
-const COIN_DATA = [
+interface ColData {
+  sentiment: Sentiment;
+  confidence: number;
+  price: string;
+  change: number;
+  keywords: string[];
+  subreddits: typeof mockSubredditBreakdown;
+}
+
+const COIN_DATA: Array<{ id: string; defaultName: string; defaultData: ColData }> = [
   {
     id: "coin1",
     defaultName: "Bitcoin",
     defaultData: {
-      sentiment: "Bullish" as const,
+      sentiment: "Bullish",
       confidence: 87,
       price: "$67,234",
       change: 2.4,
@@ -20,7 +30,7 @@ const COIN_DATA = [
     id: "coin2",
     defaultName: "Ethereum",
     defaultData: {
-      sentiment: "Mixed" as const,
+      sentiment: "Mixed",
       confidence: 62,
       price: "$3,456",
       change: -1.2,
