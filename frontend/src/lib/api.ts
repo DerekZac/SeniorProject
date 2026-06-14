@@ -182,31 +182,71 @@ async function fetchRedditPosts(query: string, subreddits: string[]): Promise<Re
   return posts;
 }
 
-// ─── CryptoCompare News ───────────────────────────────────────────────────────
+// ─── News — CryptoCompare primary, Hacker News Algolia fallback ──────────────
 
 async function fetchCCNews(): Promise<NewsItem[]> {
-  const key = 'cc:news';
-  const cached = getCache<NewsItem[]>(key);
+  const cacheKey = 'news:combined';
+  const cached = getCache<NewsItem[]>(cacheKey);
   if (cached) return cached;
 
-  console.log('[api] GET CryptoCompare news');
-  const res = await fetch(
-    'https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest'
+  // 1. Try CryptoCompare (with optional API key)
+  try {
+    console.log('[api] GET CryptoCompare news');
+    const ccKey = import.meta.env.VITE_CRYPTOCOMPARE_API_KEY as string | undefined;
+    const headers: Record<string, string> = {};
+    if (ccKey) headers['authorization'] = `Apikey ${ccKey}`;
+
+    const res = await fetch(
+      'https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest',
+      { headers }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const items: NewsItem[] = (json.Data ?? []).slice(0, 12).map((item: any, i: number) => ({
+        id: i + 1,
+        title: item.title,
+        source: item.source_info?.name ?? item.source ?? 'CryptoCompare',
+        timeAgo: timeAgo(item.published_on),
+        url: item.url,
+        imageUrl: item.imageurl || undefined,
+      }));
+      if (items.length > 0) {
+        setCache(cacheKey, items, TTL.news);
+        return items;
+      }
+    }
+  } catch (e) {
+    console.warn('[api] CryptoCompare news failed, falling back to HN Algolia:', e);
+  }
+
+  // 2. Fallback: Hacker News Algolia — always CORS-free, no key needed
+  console.log('[api] GET Hacker News Algolia (crypto news fallback)');
+  const hnRes = await fetch(
+    'https://hn.algolia.com/api/v1/search?query=bitcoin+ethereum+cryptocurrency+crypto&tags=story&numericFilters=points>5&hitsPerPage=15'
   );
-  if (!res.ok) throw new Error(`CryptoCompare HTTP ${res.status}`);
+  if (!hnRes.ok) throw new Error(`HN Algolia HTTP ${hnRes.status}`);
 
-  const json = await res.json();
+  const hnJson = await hnRes.json();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const news: NewsItem[] = (json.Data ?? []).slice(0, 12).map((item: any, i: number) => ({
-    id: i + 1,
-    title: item.title,
-    source: item.source_info?.name ?? item.source,
-    timeAgo: timeAgo(item.published_on),
-    url: item.url,
-    imageUrl: item.imageurl || undefined,
-  }));
+  const news: NewsItem[] = (hnJson.hits ?? [])
+    .filter((h: any) => h.url && h.title)
+    .slice(0, 12)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((h: any, i: number) => {
+      let source = 'Hacker News';
+      try { source = new URL(h.url).hostname.replace(/^www\./, ''); } catch { /* ok */ }
+      const publishedSec = Math.floor(new Date(h.created_at).getTime() / 1000);
+      return {
+        id: i + 1,
+        title: h.title as string,
+        source,
+        timeAgo: timeAgo(publishedSec),
+        url: h.url as string,
+      };
+    });
 
-  setCache(key, news, TTL.news);
+  setCache(cacheKey, news, TTL.news);
   return news;
 }
 
