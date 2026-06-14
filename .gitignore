@@ -30,3 +30,10 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Testing artifacts
+frontend/screenshots/
+frontend/screenshot-test.mjs
+
+# Playwright browsers
+/frontend/node_modules/.cache/ms-playwright/
