@@ -1,12 +1,23 @@
-import { User, Star, Clock, X, Lock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { User, Star, Clock, X, Lock, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import SentimentBadge from "../components/SentimentBadge";
-import { mockCoins } from "../lib/mockData";
+import { api, type Coin } from "../lib/api";
 import { useApp } from "../context/AppContext";
 
 export default function Profile() {
   const { watchlist, toggleWatchlist, searchHistory, clearSearchHistory } = useApp();
-  const watchlistCoins = mockCoins.filter(c => watchlist.includes(c.ticker));
+  const [watchlistCoins, setWatchlistCoins] = useState<Coin[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (watchlist.length === 0) { setWatchlistCoins([]); return; }
+    setLoading(true);
+    api.getWatchlistCoins(watchlist)
+      .then(setWatchlistCoins)
+      .catch(() => setWatchlistCoins([]))
+      .finally(() => setLoading(false));
+  }, [watchlist]);
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
@@ -40,11 +51,19 @@ export default function Profile() {
           </Link>
         </div>
 
-        {watchlistCoins.length === 0 ? (
+        {loading && (
+          <div className="flex items-center gap-2 text-[#8A8FA8] text-sm py-2">
+            <Loader2 size={14} className="animate-spin" /> Loading live data…
+          </div>
+        )}
+
+        {!loading && watchlist.length === 0 && (
           <p className="text-[#8A8FA8] text-sm">No coins in your watchlist yet.</p>
-        ) : (
+        )}
+
+        {!loading && watchlistCoins.length > 0 && (
           <div className="flex flex-col gap-1">
-            {watchlistCoins.map((coin) => (
+            {watchlistCoins.map(coin => (
               <div
                 key={coin.ticker}
                 className="flex items-center justify-between py-2.5 border-b border-[#2A2D3A] last:border-0"
@@ -57,8 +76,12 @@ export default function Profile() {
                     {coin.ticker}
                   </Link>
                   <span className="text-[#8A8FA8] text-sm truncate">{coin.name}</span>
+                  <span className="text-white text-sm font-medium">{coin.price}</span>
+                  <span className={`text-xs font-medium ${coin.change >= 0 ? "text-[#00C896]" : "text-[#FF4D4D]"}`}>
+                    {coin.change >= 0 ? "+" : ""}{coin.change}%
+                  </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-shrink-0">
                   <SentimentBadge sentiment={coin.sentiment} confidence={coin.confidence} size="sm" />
                   <button
                     onClick={() => toggleWatchlist(coin.ticker)}
@@ -95,7 +118,7 @@ export default function Profile() {
           <p className="text-[#8A8FA8] text-sm">No searches yet.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {searchHistory.map((coin) => (
+            {searchHistory.map(coin => (
               <Link
                 key={coin}
                 to={`/results/${coin.toLowerCase()}`}
