@@ -195,4 +195,8 @@ All types are exported from `src/lib/api.ts`.
 
 ## Team
 
-Ahmed Iqbal — Senior Capstone Project, Spring 2025
+Ahmed I.
+Jon Z.
+Umar
+Derek Z.
+Ryan
