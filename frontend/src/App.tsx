@@ -18,7 +18,7 @@ export default function App() {
   return (
     <AuthProvider>
       <AppProvider>
-        <Router>
+        <Router basename={import.meta.env.BASE_URL}>
           <div className="min-h-screen bg-[#0D0F14] text-white">
             <Navbar />
             <Routes>
