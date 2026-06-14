@@ -50,10 +50,10 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-[#8A8FA8]">
-          <Link to="/register" className="text-[#4B6BFB] hover:underline">Create an account</Link>
-          <span className="mx-2">•</span>
-          <Link to="/login" className="text-[#4B6BFB] hover:underline">Forgot password?</Link>
+        <div className="mt-6 flex items-center justify-center gap-3 text-sm text-[#8A8FA8]">
+          <Link to="/register" className="text-[#4B6BFB] hover:underline">Create account</Link>
+          <span>•</span>
+          <Link to="/forgot-password" className="text-[#4B6BFB] hover:underline">Forgot password?</Link>
         </div>
       </div>
     </div>
