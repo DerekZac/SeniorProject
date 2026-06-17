@@ -25,68 +25,129 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="sticky top-0 z-50 glass border-b border-[#21213A]">
-        <div className="px-4 md:px-6 h-14 flex items-center justify-between max-w-7xl mx-auto">
-
+      <nav className="sticky top-0 z-50 glass" style={{ borderBottom: '1px solid #21213A' }}>
+        <div
+          style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1.5rem', height: '3.5rem' }}
+          className="flex items-center justify-between"
+        >
           {/* Logo */}
-          <Link to="/" onClick={close} className="flex items-center gap-2 flex-shrink-0 group">
-            <div className="w-8 h-8 bg-[#F7931A] rounded-lg flex items-center justify-center shadow-glow-orange transition-transform group-hover:scale-105">
-              <TrendingUp size={16} className="text-white" />
+          <Link
+            to="/"
+            onClick={close}
+            className="flex items-center gap-2.5 flex-shrink-0"
+            style={{ textDecoration: 'none' }}
+          >
+            <div
+              style={{
+                width: '1.75rem',
+                height: '1.75rem',
+                background: '#F7931A',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <TrendingUp size={14} color="#fff" />
             </div>
-            <span className="font-bold text-lg text-white tracking-tight">
-              Crypt<span className="text-[#F7931A]">on</span>
+            <span style={{ fontWeight: 700, fontSize: '1rem', color: '#FFFFFF', letterSpacing: '-0.02em' }}>
+              Crypt<span style={{ color: '#F7931A' }}>on</span>
             </span>
           </Link>
 
-          {/* Desktop center links */}
-          <div className="hidden md:flex items-center gap-0.5">
-            {NAV_LINKS.map(({ path, label, icon: Icon }) => (
+          {/* Desktop nav — text only, no icons */}
+          <div className="hidden md:flex items-center" style={{ gap: '0.125rem' }}>
+            {NAV_LINKS.map(({ path, label }) => (
               <Link
                 key={path}
                 to={path}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  isActive(pathname, path)
-                    ? 'bg-[#F7931A]/12 text-[#F7931A]'
-                    : 'text-[#5A5A7A] hover:text-white hover:bg-[#16162A]'
-                }`}
+                style={{
+                  padding: '0.5rem 0.875rem',
+                  fontSize: '0.875rem',
+                  fontWeight: isActive(pathname, path) ? 600 : 400,
+                  color: isActive(pathname, path) ? '#FFFFFF' : '#5A5A7A',
+                  textDecoration: 'none',
+                  transition: 'color 0.15s ease',
+                  letterSpacing: isActive(pathname, path) ? '-0.01em' : 'normal',
+                }}
+                onMouseEnter={e => { if (!isActive(pathname, path)) (e.currentTarget as HTMLAnchorElement).style.color = '#E8E8F0'; }}
+                onMouseLeave={e => { if (!isActive(pathname, path)) (e.currentTarget as HTMLAnchorElement).style.color = '#5A5A7A'; }}
               >
-                <Icon size={15} />
                 {label}
               </Link>
             ))}
           </div>
 
           {/* Desktop auth */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center" style={{ gap: '0.25rem' }}>
             {isAuthenticated ? (
               <>
                 <Link
                   to="/profile"
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    isActive(pathname, '/profile')
-                      ? 'bg-[#F7931A]/12 text-[#F7931A]'
-                      : 'text-[#5A5A7A] hover:text-white hover:bg-[#16162A]'
-                  }`}
+                  style={{
+                    padding: '0.5rem 0.875rem',
+                    fontSize: '0.875rem',
+                    fontWeight: isActive(pathname, '/profile') ? 600 : 400,
+                    color: isActive(pathname, '/profile') ? '#FFFFFF' : '#5A5A7A',
+                    textDecoration: 'none',
+                    transition: 'color 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    maxWidth: '10rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  <User size={15} />
-                  <span className="max-w-[100px] truncate">{session?.username}</span>
+                  <User size={14} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{session?.username}</span>
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="p-2 rounded-lg text-[#5A5A7A] hover:text-[#FF3355] hover:bg-[#16162A] transition-all"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '0.5rem 0.625rem',
+                    color: '#5A5A7A',
+                    transition: 'color 0.15s ease',
+                    display: 'flex', alignItems: 'center',
+                  }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = '#FF3355')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = '#5A5A7A')}
                   title="Sign out"
                 >
-                  <LogOut size={15} />
+                  <LogOut size={14} />
                 </button>
               </>
             ) : (
               <Link
                 to="/login"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all shadow-glow-orange hover:shadow-[0_0_32px_rgba(247,147,26,0.35)] hover:scale-[1.02]"
-                style={{ background: '#F7931A' }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  color: '#F7931A',
+                  textDecoration: 'none',
+                  border: '1px solid rgba(247,147,26,0.35)',
+                  borderRadius: '6px',
+                  transition: 'border-color 0.15s ease, color 0.15s ease',
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLAnchorElement;
+                  el.style.borderColor = 'rgba(247,147,26,0.7)';
+                  el.style.color = '#F7931A';
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLAnchorElement;
+                  el.style.borderColor = 'rgba(247,147,26,0.35)';
+                  el.style.color = '#F7931A';
+                }}
               >
-                <LogIn size={15} />
-                Sign In
+                <LogIn size={14} />
+                Sign in
               </Link>
             )}
           </div>
@@ -94,7 +155,8 @@ export default function Navbar() {
           {/* Mobile hamburger */}
           <button
             onClick={() => setOpen(v => !v)}
-            className="md:hidden p-2 rounded-lg text-[#5A5A7A] hover:text-white hover:bg-[#16162A] transition-all"
+            className="md:hidden"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: '#5A5A7A', transition: 'color 0.15s ease' }}
             aria-label={open ? 'Close menu' : 'Open menu'}
           >
             {open ? <X size={20} /> : <Menu size={20} />}
@@ -105,56 +167,66 @@ export default function Navbar() {
       {/* Mobile drawer */}
       {open && (
         <>
-          <div className="fixed inset-0 z-40 md:hidden bg-black/60 backdrop-blur-sm" onClick={close} />
           <div
-            className="fixed top-14 left-0 right-0 z-40 md:hidden p-3 flex flex-col gap-1 animate-slide-down border-b border-[#21213A]"
-            style={{ background: '#0F0F1A' }}
+            className="fixed inset-0 z-40 md:hidden"
+            style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
+            onClick={close}
+          />
+          <div
+            className="fixed top-14 left-0 right-0 z-40 md:hidden animate-slide-down"
+            style={{ background: '#08080F', borderBottom: '1px solid #21213A', padding: '0.75rem 1rem 1.25rem' }}
           >
             {NAV_LINKS.map(({ path, label, icon: Icon }) => (
               <Link
                 key={path}
                 to={path}
                 onClick={close}
-                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all ${
-                  isActive(pathname, path)
-                    ? 'bg-[#F7931A]/10 text-[#F7931A]'
-                    : 'text-[#5A5A7A] hover:text-white hover:bg-[#16162A]'
-                }`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.875rem',
+                  padding: '0.875rem 0.75rem',
+                  borderRadius: '8px',
+                  fontSize: '0.9375rem',
+                  fontWeight: isActive(pathname, path) ? 600 : 400,
+                  color: isActive(pathname, path) ? '#FFFFFF' : '#5A5A7A',
+                  textDecoration: 'none',
+                  transition: 'background-color 0.12s ease',
+                }}
               >
                 <Icon size={17} />
                 {label}
               </Link>
             ))}
 
-            <div className="border-t border-[#21213A] my-1" />
+            <div style={{ borderTop: '1px solid #21213A', margin: '0.625rem 0' }} />
 
             {isAuthenticated ? (
               <>
                 <Link
                   to="/profile"
                   onClick={close}
-                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium text-[#5A5A7A] hover:text-white hover:bg-[#16162A] transition-all"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem 0.75rem', borderRadius: '8px', fontSize: '0.9375rem', color: '#5A5A7A', textDecoration: 'none' }}
                 >
                   <User size={17} />
                   {session?.username ?? 'Profile'}
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium text-[#FF3355] hover:bg-[#16162A] w-full text-left transition-all"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem 0.75rem', borderRadius: '8px', fontSize: '0.9375rem', color: '#FF3355', background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}
                 >
                   <LogOut size={17} />
-                  Sign Out
+                  Sign out
                 </button>
               </>
             ) : (
               <Link
                 to="/login"
                 onClick={close}
-                className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl text-sm font-semibold text-white"
-                style={{ background: '#F7931A' }}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.875rem', borderRadius: '8px', fontSize: '0.9375rem', fontWeight: 500, color: '#F7931A', textDecoration: 'none', border: '1px solid rgba(247,147,26,0.35)', marginTop: '0.5rem' }}
               >
                 <LogIn size={17} />
-                Sign In
+                Sign in
               </Link>
             )}
           </div>

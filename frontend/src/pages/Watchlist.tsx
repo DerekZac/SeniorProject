@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Star } from 'lucide-react';
 import CoinCard from '../components/CoinCard';
-import { SkeletonCard } from '../components/Skeleton';
 import { api, type Coin } from '../lib/api';
 import { useApp } from '../context/AppContext';
 
@@ -20,34 +19,59 @@ export default function Watchlist() {
   }, [watchlist]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
-      <div className="flex items-center gap-3 mb-1">
-        <Star size={22} fill="currentColor" style={{ color: '#FFB020' }} />
-        <h1 className="text-2xl font-bold text-white">My Watchlist</h1>
+    <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '5rem 1.5rem 6rem' }}>
+
+      {/* Page header */}
+      <div style={{ marginBottom: '3.5rem' }}>
+        <p className="section-label" style={{ marginBottom: '0.875rem' }}>Portfolio Tracker</p>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.25rem' }}>
+          <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: '#FFFFFF', lineHeight: 1 }}>
+            My Watchlist
+          </h1>
+          <span className="section-label">
+            {watchlist.length} coin{watchlist.length !== 1 ? 's' : ''} tracked
+          </span>
+        </div>
       </div>
-      <p className="text-sm mb-8 ml-9" style={{ color: '#5A5A7A' }}>
-        {watchlist.length} coin{watchlist.length !== 1 ? 's' : ''} tracked — live prices &amp; sentiment
-      </p>
 
+      {/* Loading state */}
       {loading && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="skeleton-row" style={{ height: '52px', opacity: 1 - i * 0.12 }} />
+          ))}
         </div>
       )}
 
+      {/* Empty state */}
       {!loading && watchlist.length === 0 && (
-        <div
-          className="rounded-xl py-20 text-center"
-          style={{ background: '#16162A', border: '1px solid #21213A' }}
-        >
-          <Star size={44} className="mx-auto mb-4 opacity-20" style={{ color: '#FFB020' }} />
-          <p className="text-white font-medium mb-1">Your watchlist is empty</p>
-          <p className="text-sm" style={{ color: '#5A5A7A' }}>Search for coins and star them to track them here</p>
+        <div style={{ padding: '5rem 0', borderTop: '1px solid #21213A', borderBottom: '1px solid #21213A' }}>
+          <p style={{ fontSize: '0.9375rem', color: '#5A5A7A', lineHeight: 1.6 }}>
+            Your watchlist is empty.
+          </p>
+          <p style={{ fontSize: '0.875rem', color: '#3A3A5A', marginTop: '0.5rem', paddingLeft: '1rem', borderLeft: '2px solid #21213A' }}>
+            Search for any coin and press the star icon to start tracking it here.
+          </p>
         </div>
       )}
 
+      {/* Table */}
       {!loading && coins.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div>
+          {/* Column headers */}
+          <div
+            className="hidden md:flex items-center gap-3 md:gap-4"
+            style={{ padding: '0 0 0.625rem', borderBottom: '1px solid #21213A' }}
+          >
+            <span className="section-label" style={{ width: '3.5rem', flexShrink: 0 }}>Ticker</span>
+            <span className="section-label flex-1">Name</span>
+            <span className="section-label hidden sm:block">Price</span>
+            <span className="section-label" style={{ width: '4rem', textAlign: 'right' }}>24h</span>
+            <span className="section-label hidden md:block" style={{ width: '5.5rem' }}>Signal</span>
+            <span className="section-label hidden lg:block" style={{ width: '2.5rem', textAlign: 'right' }}>Conf.</span>
+            <span style={{ width: '1.5rem', flexShrink: 0 }} />
+          </div>
+
           {coins.map(coin => (
             <CoinCard
               key={coin.ticker}

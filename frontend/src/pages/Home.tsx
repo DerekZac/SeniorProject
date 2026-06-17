@@ -1,253 +1,399 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Flame, ArrowRight, Newspaper, Activity, Users, Zap } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowUpRight, Star, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import SearchBar from '../components/SearchBar';
-import CoinCard from '../components/CoinCard';
-import NewsCard from '../components/NewsCard';
+import SentimentBadge from '../components/SentimentBadge';
 import TickerStrip from '../components/TickerStrip';
-import { SkeletonCard, SkeletonNewsCard } from '../components/Skeleton';
 import { api, type Coin, type NewsItem } from '../lib/api';
 import { useApp } from '../context/AppContext';
 
-function FearGreedGauge({ value }: { value: number }) {
-  const angle = -90 + (value / 100) * 180;
-  const color = value >= 60 ? '#00E676' : value >= 40 ? '#FFB020' : '#FF3355';
-  const label = value >= 75 ? 'Extreme Greed' : value >= 60 ? 'Greed' : value >= 40 ? 'Neutral' : value >= 25 ? 'Fear' : 'Extreme Fear';
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
+function SectionRule({ label, action }: { label: string; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center">
-      <svg viewBox="0 0 120 70" className="w-36">
-        <path d="M 10 60 A 50 50 0 0 1 110 60" fill="none" stroke="#21213A" strokeWidth="10" strokeLinecap="round" />
-        <path
-          d="M 10 60 A 50 50 0 0 1 110 60"
-          fill="none"
-          stroke={color}
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={`${(value / 100) * 157} 157`}
-          style={{ transition: 'stroke-dasharray 1s ease-out, stroke 0.5s' }}
-        />
-        <line
-          x1="60" y1="60"
-          x2={60 + 40 * Math.cos(((angle - 90) * Math.PI) / 180)}
-          y2={60 + 40 * Math.sin(((angle - 90) * Math.PI) / 180)}
-          stroke={color} strokeWidth="2.5" strokeLinecap="round"
-          style={{ transition: 'all 1s ease-out' }}
-        />
-        <circle cx="60" cy="60" r="4" fill={color} />
-        <text x="60" y="52" textAnchor="middle" fill="white" fontSize="14" fontWeight="700">{value}</text>
-      </svg>
-      <span className="text-sm font-semibold mt-1" style={{ color }}>{label}</span>
-      <span className="text-xs mt-0.5" style={{ color: '#5A5A7A' }}>Fear &amp; Greed Index</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '2.75rem' }}>
+      <span className="section-label">{label}</span>
+      <div style={{ flex: 1, height: '1px', background: '#21213A' }} />
+      {action}
     </div>
   );
 }
 
-function StatBadge({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string; color: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-1" style={{ background: `${color}15` }}>
-        <Icon size={18} style={{ color }} />
-      </div>
-      <span className="text-base font-bold text-white">{value}</span>
-      <span className="text-xs" style={{ color: '#5A5A7A' }}>{label}</span>
-    </div>
-  );
-}
+function FeaturedCoin({
+  coin, isWatchlisted, onToggle,
+}: { coin: Coin; isWatchlisted: boolean; onToggle: () => void }) {
+  const navigate = useNavigate();
+  const up       = coin.change >= 0;
+  const sentColor = coin.sentiment === 'Bullish' ? '#00E676' : coin.sentiment === 'Bearish' ? '#FF3355' : '#FFB020';
 
-function MoodBar({ label, percent, color }: { label: string; percent: number; color: string }) {
   return (
-    <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span style={{ color: '#5A5A7A' }}>{label}</span>
-        <span className="font-semibold" style={{ color }}>{percent}%</span>
-      </div>
-      <div className="w-full rounded-full h-1.5" style={{ background: '#21213A' }}>
+    <div
+      style={{ cursor: 'pointer', paddingRight: '0' }}
+      onClick={() => navigate(`/results/${coin.ticker.toLowerCase()}`)}
+    >
+      <p className="section-label" style={{ color: '#F7931A', marginBottom: '1.75rem' }}>
+        Most Discussed
+      </p>
+
+      <div style={{ marginBottom: '1.5rem' }}>
         <div
-          className="h-1.5 rounded-full"
-          style={{ width: `${percent}%`, background: color, transition: 'width 1s ease-out' }}
-        />
+          className="num"
+          style={{
+            fontSize: 'clamp(3.25rem, 6vw, 5rem)',
+            fontWeight: 800,
+            lineHeight: 0.94,
+            letterSpacing: '-0.045em',
+            color: '#FFFFFF',
+          }}
+        >
+          {coin.ticker}
+        </div>
+        <div style={{ fontSize: '0.9375rem', color: '#5A5A7A', marginTop: '0.625rem', letterSpacing: '0.01em' }}>
+          {coin.name}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.125rem', marginBottom: '2rem' }}>
+        <span
+          className="num"
+          style={{ fontSize: '2rem', fontWeight: 700, color: '#FFFFFF', letterSpacing: '-0.025em' }}
+        >
+          {coin.price}
+        </span>
+        <span
+          className="num"
+          style={{ fontSize: '0.9375rem', color: up ? '#00E676' : '#FF3355' }}
+        >
+          {up ? '+' : ''}{coin.change}% (24h)
+        </span>
+      </div>
+
+      <div style={{ marginBottom: '2rem' }}>
+        <div style={{ height: '2px', background: '#21213A', overflow: 'hidden' }}>
+          <div
+            style={{
+              height: '100%',
+              width: `${coin.confidence}%`,
+              background: sentColor,
+              transition: 'width 0.9s ease-out',
+            }}
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+          <span className="section-label">Confidence score</span>
+          <span className="section-label num">{coin.confidence}%</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+        <SentimentBadge sentiment={coin.sentiment} size="md" />
+        <button
+          onClick={e => { e.stopPropagation(); onToggle(); }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '0.25rem',
+            color: isWatchlisted ? '#FFB020' : '#3A3A5A',
+            transition: 'color 0.15s ease',
+          }}
+          aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+        >
+          <Star size={16} fill={isWatchlisted ? 'currentColor' : 'none'} />
+        </button>
       </div>
     </div>
   );
 }
+
+const SENT_ICON = { Bullish: TrendingUp, Bearish: TrendingDown, Mixed: Minus };
+const SENT_CLR  = { Bullish: '#00E676', Bearish: '#FF3355', Mixed: '#FFB020' };
+
+function CoinRow({ coin }: { coin: Coin }) {
+  const navigate = useNavigate();
+  const up       = coin.change >= 0;
+  const Icon     = SENT_ICON[coin.sentiment];
+  const color    = SENT_CLR[coin.sentiment];
+
+  return (
+    <div
+      className="data-row group flex items-center gap-3"
+      style={{ padding: '0.875rem 0', borderBottom: '1px solid #21213A', cursor: 'pointer' }}
+      onClick={() => navigate(`/results/${coin.ticker.toLowerCase()}`)}
+    >
+      <span
+        className="row-title num transition-colors duration-150"
+        style={{ width: '3.25rem', fontWeight: 700, fontSize: '0.875rem', color: '#FFFFFF', flexShrink: 0 }}
+      >
+        {coin.ticker}
+      </span>
+      <span className="flex-1 truncate" style={{ fontSize: '0.8125rem', color: '#5A5A7A' }}>
+        {coin.name}
+      </span>
+      <span className="num" style={{ fontSize: '0.875rem', color: '#E8E8F0', flexShrink: 0 }}>
+        {coin.price}
+      </span>
+      <span
+        className="num"
+        style={{ width: '3.75rem', textAlign: 'right', fontSize: '0.8125rem', color: up ? '#00E676' : '#FF3355', flexShrink: 0 }}
+      >
+        {up ? '+' : ''}{coin.change}%
+      </span>
+      <span
+        className="hidden sm:inline-flex items-center gap-1"
+        style={{ width: '5.25rem', fontSize: '0.75rem', fontWeight: 600, color, flexShrink: 0 }}
+      >
+        <Icon size={12} strokeWidth={2.5} />
+        {coin.sentiment}
+      </span>
+    </div>
+  );
+}
+
+function FeaturedArticle({ item }: { item: NewsItem }) {
+  return (
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group"
+      style={{ display: 'block', textDecoration: 'none', padding: '2rem 0', borderBottom: '1px solid #21213A' }}
+    >
+      <p className="section-label" style={{ marginBottom: '1rem' }}>
+        {item.source} · {item.timeAgo}
+      </p>
+      <h3
+        style={{
+          fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)',
+          fontWeight: 700,
+          lineHeight: 1.22,
+          letterSpacing: '-0.02em',
+          color: '#FFFFFF',
+          maxWidth: '54ch',
+          transition: 'color 0.15s ease',
+        }}
+        className="group-hover:text-[#F7931A] transition-colors"
+      >
+        {item.title}
+      </h3>
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+          marginTop: '1.25rem',
+          color: '#5A5A7A',
+          fontSize: '0.8125rem',
+          fontWeight: 500,
+          transition: 'color 0.15s ease',
+        }}
+        className="group-hover:text-[#F7931A] transition-colors"
+      >
+        Read the article <ArrowUpRight size={13} />
+      </div>
+    </a>
+  );
+}
+
+function NewsRow({ item }: { item: NewsItem }) {
+  return (
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="data-row group flex items-baseline gap-4 md:gap-6"
+      style={{ padding: '1.0625rem 0', borderBottom: '1px solid #21213A', textDecoration: 'none' }}
+    >
+      <span className="section-label hidden sm:inline" style={{ width: '7rem', flexShrink: 0 }}>
+        {item.source}
+      </span>
+      <span
+        className="row-title flex-1 line-clamp-1 transition-colors duration-150"
+        style={{ fontSize: '0.9375rem', color: '#E8E8F0', lineHeight: 1.4, minWidth: 0 }}
+      >
+        {item.title}
+      </span>
+      <span className="section-label hidden md:block" style={{ flexShrink: 0 }}>
+        {item.timeAgo}
+      </span>
+      <ArrowUpRight
+        size={13}
+        className="flex-shrink-0 transition-colors duration-150 group-hover:text-[#F7931A]"
+        style={{ color: '#3A3A5A' }}
+      />
+    </a>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [coins, setCoins]     = useState<Coin[]>([]);
-  const [news, setNews]       = useState<NewsItem[]>([]);
+  const [coins, setCoins]           = useState<Coin[]>([]);
+  const [news, setNews]             = useState<NewsItem[]>([]);
   const [loadingCoins, setLoadingCoins] = useState(true);
   const [loadingNews, setLoadingNews]   = useState(true);
   const { isWatchlisted, toggleWatchlist } = useApp();
 
-  const fearGreed = 62;
-
   useEffect(() => {
-    api.getTrending()
-      .then(setCoins)
-      .finally(() => setLoadingCoins(false));
-    api.getNews()
-      .then(setNews)
-      .finally(() => setLoadingNews(false));
+    api.getTrending().then(setCoins).finally(() => setLoadingCoins(false));
+    api.getNews().then(setNews).finally(() => setLoadingNews(false));
   }, []);
 
-  const bullishCount = coins.filter(c => c.sentiment === 'Bullish').length;
-  const bearishCount = coins.filter(c => c.sentiment === 'Bearish').length;
-  const mixedCount   = coins.filter(c => c.sentiment === 'Mixed').length;
-  const total        = coins.length || 1;
+  const featured = coins[0];
+  const rest     = coins.slice(1, 8);
 
   return (
     <div>
-      {/* Ticker strip */}
-      {!loadingCoins && <TickerStrip coins={coins} />}
+      {!loadingCoins && coins.length > 0 && <TickerStrip coins={coins} />}
 
-      {/* Hero */}
-      <div
-        className="relative px-6 py-20 md:py-28 text-center overflow-hidden"
-        style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(247,147,26,0.18) 0%, rgba(8,8,15,0) 65%)' }}
-      >
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 40% 50% at 85% 40%, rgba(0,212,255,0.06) 0%, transparent 60%)' }}
-        />
+      {/* ── Hero ────────────────────────────────── */}
+      <section style={{ padding: '7rem 0 5.5rem' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1.5rem' }}>
+          <div className="hero-grid">
 
-        <div className="relative z-10 max-w-3xl mx-auto">
-          <div
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold mb-6"
-            style={{ background: 'rgba(247,147,26,0.12)', border: '1px solid rgba(247,147,26,0.25)', color: '#F7931A' }}
-          >
-            <Zap size={12} />
-            Live Reddit Sentiment · Updated Every 5 Min
+            {/* Left — headline */}
+            <div>
+              <p className="section-label" style={{ marginBottom: '1.875rem' }}>
+                Live Reddit Sentiment
+              </p>
+              <h1 className="hero-display" style={{ marginBottom: '2.75rem' }}>
+                Reddit moves<br />before the charts.
+              </h1>
+              <p
+                style={{
+                  fontSize: '1.0625rem',
+                  lineHeight: 1.74,
+                  color: '#6A6A82',
+                  paddingLeft: '1.25rem',
+                  borderLeft: '2px solid #21213A',
+                  maxWidth: '40ch',
+                }}
+              >
+                Sentiment from r/Bitcoin, r/CryptoCurrency, and eight other communities — distilled into a single verdict. Updated every five minutes.
+              </p>
+            </div>
+
+            {/* Right — search */}
+            <div>
+              <p className="section-label" style={{ marginBottom: '1rem' }}>
+                Search any coin to see the verdict
+              </p>
+              <SearchBar large />
+              <div style={{ marginTop: '1.75rem' }}>
+                <p className="section-label" style={{ marginBottom: '0.75rem' }}>
+                  Popular right now
+                </p>
+                <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+                  {['Bitcoin', 'Ethereum', 'Solana', 'XRP'].map(c => (
+                    <Link
+                      key={c}
+                      to={`/results/${c.toLowerCase()}`}
+                      className="group inline-flex items-center gap-1 transition-colors duration-150 hover:text-[#F7931A]"
+                      style={{ fontSize: '0.875rem', color: '#5A5A7A', textDecoration: 'none' }}
+                    >
+                      {c}
+                      <ArrowUpRight size={12} className="transition-transform duration-150 group-hover:translate-x-px group-hover:-translate-y-px" />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
 
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-5 leading-tight tracking-tight">
-            Crypto Sentiment,{' '}
-            <span className="text-gradient-orange">Decoded</span>
-            <br className="hidden md:block" /> in Real-Time
-          </h1>
+      <div style={{ borderTop: '1px solid #21213A' }} />
 
-          <p className="text-[#5A5A7A] text-base md:text-lg mb-10 max-w-xl mx-auto">
-            Scan 10+ crypto subreddits instantly. Know if the crowd is bullish or bearish before you trade.
-          </p>
+      {/* ── Sentiment tracker ────────────────────── */}
+      <section style={{ padding: '4.5rem 0' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1.5rem' }}>
+          <SectionRule label="Sentiment Tracker" />
 
-          <SearchBar large />
+          {loadingCoins ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="skeleton-row"
+                  style={{ height: '52px', opacity: 1 - i * 0.11 }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="trending-grid">
 
-          <div className="flex items-center justify-center gap-6 mt-6 text-sm" style={{ color: '#5A5A7A' }}>
-            <span>Try:</span>
-            {['Bitcoin', 'Ethereum', 'Solana'].map(c => (
+              {/* Featured coin */}
+              {featured && (
+                <FeaturedCoin
+                  coin={featured}
+                  isWatchlisted={isWatchlisted(featured.ticker)}
+                  onToggle={() => toggleWatchlist(featured.ticker)}
+                />
+              )}
+
+              {/* Data list */}
+              <div>
+                {/* Column labels */}
+                <div
+                  className="hidden md:flex items-center gap-3"
+                  style={{ padding: '0 0 0.625rem', borderBottom: '1px solid #21213A', marginBottom: '0' }}
+                >
+                  <span className="section-label" style={{ width: '3.25rem', flexShrink: 0 }}>Coin</span>
+                  <span className="section-label flex-1">Name</span>
+                  <span className="section-label">Price</span>
+                  <span className="section-label" style={{ width: '3.75rem', textAlign: 'right' }}>24h</span>
+                  <span className="section-label hidden sm:block" style={{ width: '5.25rem' }}>Signal</span>
+                </div>
+
+                {rest.map(coin => <CoinRow key={coin.ticker} coin={coin} />)}
+
+                <div style={{ paddingTop: '1.375rem' }}>
+                  <Link
+                    to="/watchlist"
+                    className="group inline-flex items-center gap-1 transition-colors duration-150 hover:text-[#F7931A]"
+                    style={{ fontSize: '0.8125rem', color: '#5A5A7A', textDecoration: 'none' }}
+                  >
+                    Open watchlist
+                    <ArrowUpRight size={12} className="transition-transform duration-150 group-hover:translate-x-px group-hover:-translate-y-px" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div style={{ borderTop: '1px solid #21213A' }} />
+
+      {/* ── In the news ──────────────────────────── */}
+      <section style={{ padding: '4.5rem 0 6.5rem' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1.5rem' }}>
+          <SectionRule
+            label="In the News"
+            action={
               <Link
-                key={c}
-                to={`/results/${c.toLowerCase()}`}
-                className="hover:text-[#F7931A] transition-colors font-medium"
+                to="/news"
+                className="group inline-flex items-center gap-1 transition-colors duration-150 hover:text-[#F7931A]"
+                style={{ fontSize: '0.8125rem', color: '#5A5A7A', textDecoration: 'none', flexShrink: 0 }}
               >
-                {c}
+                All articles
+                <ArrowUpRight size={12} className="transition-transform duration-150 group-hover:translate-x-px group-hover:-translate-y-px" />
               </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Stats bar */}
-      {!loadingCoins && coins.length > 0 && (
-        <div
-          className="border-y border-[#21213A] py-5"
-          style={{ background: '#0F0F1A' }}
-        >
-          <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 sm:grid-cols-4 gap-6 justify-items-center">
-            <StatBadge icon={Activity}   label="Coins Tracked"   value={`${coins.length}`}         color="#F7931A" />
-            <StatBadge icon={Flame}      label="Bullish"          value={`${bullishCount}`}          color="#00E676" />
-            <StatBadge icon={Users}      label="Bearish"          value={`${bearishCount}`}          color="#FF3355" />
-            <StatBadge icon={Newspaper}  label="News Articles"    value={`${news.length}`}           color="#00D4FF" />
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-10 space-y-14">
-
-        {/* Trending + Fear/Greed */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-
-          {/* Coins grid */}
-          <div className="lg:col-span-3">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-glow-orange" style={{ background: '#F7931A' }}>
-                <Flame size={15} className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-white font-bold text-lg leading-none">Trending Now</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#5A5A7A' }}>Most discussed on Reddit</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-3">
-              {loadingCoins
-                ? Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)
-                : coins.map(coin => (
-                    <CoinCard
-                      key={coin.ticker}
-                      {...coin}
-                      isWatchlisted={isWatchlisted(coin.ticker)}
-                      onToggleWatchlist={() => toggleWatchlist(coin.ticker)}
-                    />
-                  ))
-              }
-            </div>
-          </div>
-
-          {/* Sidebar: Fear/Greed + Market Mood */}
-          <div className="flex flex-col gap-5">
-            <div
-              className="rounded-xl p-5 text-center"
-              style={{ background: '#16162A', border: '1px solid #21213A' }}
-            >
-              <FearGreedGauge value={fearGreed} />
-            </div>
-
-            {!loadingCoins && coins.length > 0 && (
-              <div
-                className="rounded-xl p-5 flex flex-col gap-4"
-                style={{ background: '#16162A', border: '1px solid #21213A' }}
-              >
-                <h3 className="text-sm font-semibold text-white">Market Mood</h3>
-                <MoodBar label="Bullish" percent={Math.round((bullishCount / total) * 100)} color="#00E676" />
-                <MoodBar label="Mixed"   percent={Math.round((mixedCount   / total) * 100)} color="#FFB020" />
-                <MoodBar label="Bearish" percent={Math.round((bearishCount / total) * 100)} color="#FF3355" />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-[#21213A]" />
-
-        {/* Latest News */}
-        <div>
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(0,212,255,0.12)' }}>
-                <Newspaper size={15} style={{ color: '#00D4FF' }} />
-              </div>
-              <div>
-                <h2 className="text-white font-bold text-lg leading-none">Latest News</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#5A5A7A' }}>Breaking crypto headlines</p>
-              </div>
-            </div>
-            <Link
-              to="/news"
-              className="flex items-center gap-1 text-sm font-medium transition-colors hover:text-[#F7931A]"
-              style={{ color: '#5A5A7A' }}
-            >
-              View all <ArrowRight size={14} />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {loadingNews
-              ? Array.from({ length: 6 }).map((_, i) => <SkeletonNewsCard key={i} />)
-              : news.slice(0, 6).map(item => <NewsCard key={item.id} {...item} />)
             }
-          </div>
+          />
+
+          {loadingNews ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="skeleton-row" style={{ height: '68px', opacity: 1 - i * 0.14 }} />
+              ))}
+            </div>
+          ) : (
+            <>
+              {news[0]         && <FeaturedArticle item={news[0]} />}
+              {news.slice(1, 7).map(item => <NewsRow key={item.id} item={item} />)}
+            </>
+          )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

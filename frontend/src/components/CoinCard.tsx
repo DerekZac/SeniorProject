@@ -12,58 +12,89 @@ interface Props {
   onToggleWatchlist?: () => void;
 }
 
-const CFG = {
-  Bullish: { color: '#00E676', bg: 'rgba(0,230,118,0.09)',  border: 'rgba(0,230,118,0.22)',  Icon: TrendingUp },
-  Bearish: { color: '#FF3355', bg: 'rgba(255,51,85,0.09)',   border: 'rgba(255,51,85,0.22)',   Icon: TrendingDown },
-  Mixed:   { color: '#FFB020', bg: 'rgba(255,176,32,0.09)',  border: 'rgba(255,176,32,0.22)',  Icon: Minus },
-};
+const SENT_COLOR = {
+  Bullish: '#00E676',
+  Bearish: '#FF3355',
+  Mixed:   '#FFB020',
+} as const;
+
+const SENT_ICON = {
+  Bullish: TrendingUp,
+  Bearish: TrendingDown,
+  Mixed:   Minus,
+} as const;
 
 export default function CoinCard({ ticker, name, price, change, sentiment, confidence, isWatchlisted, onToggleWatchlist }: Props) {
   const navigate = useNavigate();
-  const { color, bg, border, Icon } = CFG[sentiment];
-  const up = change >= 0;
+  const up       = change >= 0;
+  const color    = SENT_COLOR[sentiment];
+  const Icon     = SENT_ICON[sentiment];
 
   return (
     <div
-      className="relative rounded-xl p-4 cursor-pointer card-interactive group"
-      style={{ background: '#16162A', border: '1px solid #21213A' }}
+      className="data-row group flex items-center gap-3 md:gap-4"
+      style={{ padding: '0.9375rem 0', borderBottom: '1px solid #21213A', cursor: 'pointer' }}
       onClick={() => navigate(`/results/${ticker.toLowerCase()}`)}
     >
-      {/* orange top-line glow on hover */}
-      <div
-        className="absolute inset-x-0 top-0 h-px rounded-t-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{ background: 'linear-gradient(90deg, transparent, rgba(247,147,26,0.7), transparent)' }}
-      />
+      {/* Ticker */}
+      <span
+        className="row-title num transition-colors duration-150"
+        style={{ width: '3.5rem', fontWeight: 700, fontSize: '0.875rem', color: '#FFFFFF', flexShrink: 0 }}
+      >
+        {ticker}
+      </span>
 
+      {/* Name */}
+      <span
+        className="flex-1 truncate"
+        style={{ fontSize: '0.8125rem', color: '#5A5A7A', minWidth: 0 }}
+      >
+        {name}
+      </span>
+
+      {/* Price */}
+      <span
+        className="num hidden sm:inline"
+        style={{ fontSize: '0.875rem', color: '#E8E8F0', flexShrink: 0 }}
+      >
+        {price}
+      </span>
+
+      {/* Change */}
+      <span
+        className="num"
+        style={{ width: '4rem', textAlign: 'right', fontSize: '0.8125rem', color: up ? '#00E676' : '#FF3355', flexShrink: 0 }}
+      >
+        {up ? '+' : ''}{change}%
+      </span>
+
+      {/* Sentiment */}
+      <span
+        className="hidden md:inline-flex items-center gap-1"
+        style={{ width: '5.5rem', fontSize: '0.75rem', fontWeight: 600, color, flexShrink: 0 }}
+      >
+        <Icon size={12} strokeWidth={2.5} />
+        {sentiment}
+      </span>
+
+      {/* Confidence */}
+      <span
+        className="num hidden lg:inline section-label"
+        style={{ width: '2.5rem', textAlign: 'right', flexShrink: 0 }}
+      >
+        {confidence}%
+      </span>
+
+      {/* Star */}
       <button
         onClick={e => { e.stopPropagation(); onToggleWatchlist?.(); }}
-        className="absolute top-3 right-3 p-1.5 rounded-lg transition-all hover:bg-[#21213A]"
-        style={{ color: isWatchlisted ? '#FFB020' : '#5A5A7A' }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: isWatchlisted ? '#FFB020' : '#3A3A5A', transition: 'color 0.15s ease', flexShrink: 0 }}
+        onMouseEnter={e => { if (!isWatchlisted) (e.currentTarget as HTMLButtonElement).style.color = '#5A5A7A'; }}
+        onMouseLeave={e => { if (!isWatchlisted) (e.currentTarget as HTMLButtonElement).style.color = '#3A3A5A'; }}
         aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
       >
         <Star size={14} fill={isWatchlisted ? 'currentColor' : 'none'} />
       </button>
-
-      <div className="mb-3 pr-7">
-        <div className="font-bold text-white text-sm leading-none">{ticker}</div>
-        <div className="text-[#5A5A7A] text-xs mt-1 truncate">{name}</div>
-      </div>
-
-      <div className="mb-3">
-        <div className="text-lg font-bold text-white leading-tight">{price}</div>
-        <div className={`text-xs font-semibold mt-0.5 ${up ? 'text-[#00E676]' : 'text-[#FF3355]'}`}>
-          {up ? '▲' : '▼'} {Math.abs(change)}%
-        </div>
-      </div>
-
-      <div
-        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
-        style={{ color, background: bg, border: `1px solid ${border}` }}
-      >
-        <Icon size={11} strokeWidth={2.5} />
-        {sentiment}
-        <span style={{ opacity: 0.7 }}>{confidence}%</span>
-      </div>
     </div>
   );
 }
