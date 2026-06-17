@@ -88,57 +88,26 @@ const TTL = {
   prices: 60_000,
   reddit: 5 * 60_000,
   news:   10 * 60_000,
+  error:  30_000,       // cache failures for 30s to avoid hammering
 };
 
-// ─── Trusted news source registry ────────────────────────────────────────────
+// ─── Reddit CORS proxy ────────────────────────────────────────────────────────
+// Reddit blocks direct browser requests from non-localhost origins.
+// corsproxy.io is a free CORS proxy that relays the request server-side.
 
-const TRUSTED_DOMAINS = new Set([
-  'coindesk.com', 'cointelegraph.com', 'decrypt.co', 'theblock.co',
-  'bloomberg.com', 'reuters.com', 'forbes.com', 'cnbc.com', 'wsj.com',
-  'ft.com', 'investopedia.com', 'messari.io', 'cryptoslate.com',
-  'bitcoinmagazine.com', 'beincrypto.com', 'newsbtc.com', 'cryptonews.com',
-  'ambcrypto.com', 'cryptobriefing.com', 'dailyhodl.com', 'u.today',
-  'bitcoinist.com', 'coinjournal.net', 'thedefiant.io', 'blockworks.co',
-]);
+const REDDIT = (path: string) =>
+  `https://corsproxy.io/?https://www.reddit.com${path}`;
 
-const TRUSTED_CC_SOURCES = new Set([
-  'coindesk', 'cointelegraph', 'decrypt', 'the block', 'bloomberg', 'reuters',
-  'forbes', 'cnbc', 'wall street journal', 'wsj', 'financial times', 'ft',
-  'investopedia', 'messari', 'cryptoslate', 'bitcoin magazine', 'beincrypto',
-  'newsbtc', 'cryptonews', 'ambcrypto', 'cryptobriefing', 'u.today',
-  'bitcoinist', 'blockworks', 'the defiant',
-]);
+// ─── RSS news sources ─────────────────────────────────────────────────────────
 
-const DOMAIN_DISPLAY: Record<string, string> = {
-  'coindesk.com':       'CoinDesk',
-  'cointelegraph.com':  'CoinTelegraph',
-  'decrypt.co':         'Decrypt',
-  'theblock.co':        'The Block',
-  'bloomberg.com':      'Bloomberg',
-  'reuters.com':        'Reuters',
-  'forbes.com':         'Forbes',
-  'cnbc.com':           'CNBC',
-  'wsj.com':            'WSJ',
-  'ft.com':             'Financial Times',
-  'investopedia.com':   'Investopedia',
-  'messari.io':         'Messari',
-  'cryptoslate.com':    'CryptoSlate',
-  'bitcoinmagazine.com':'Bitcoin Mag.',
-  'beincrypto.com':     'BeInCrypto',
-  'newsbtc.com':        'NewsBTC',
-  'cryptonews.com':     'Cryptonews',
-  'ambcrypto.com':      'AMBCrypto',
-  'cryptobriefing.com': 'CryptoBriefing',
-  'dailyhodl.com':      'Daily Hodl',
-  'u.today':            'U.Today',
-  'bitcoinist.com':     'Bitcoinist',
-  'blockworks.co':      'Blockworks',
-  'thedefiant.io':      'The Defiant',
-};
+const RSS_SOURCES = [
+  { feed: 'https://feeds.feedburner.com/CoinDesk',  source: 'CoinDesk' },
+  { feed: 'https://cointelegraph.com/rss',           source: 'CoinTelegraph' },
+  { feed: 'https://decrypt.co/feed',                 source: 'Decrypt' },
+  { feed: 'https://blockworks.co/feed',              source: 'Blockworks' },
+];
 
-function extractDomain(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, '').toLowerCase(); } catch { return ''; }
-}
+const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -205,9 +174,9 @@ async function fetchRedditPosts(query: string, subreddits: string[]): Promise<Re
   const cached = getCache<RedditRaw[]>(key);
   if (cached) return cached;
 
-  const url =
-    `https://www.reddit.com/r/${subs}/search.json` +
-    `?q=${encodeURIComponent(query)}&sort=hot&limit=100&t=week&raw_json=1`;
+  const url = REDDIT(
+    `/r/${subs}/search.json?q=${encodeURIComponent(query)}&sort=hot&limit=100&t=week&raw_json=1`
+  );
 
   logger.debug('api', `GET Reddit posts for "${query}"`);
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -229,91 +198,46 @@ async function fetchRedditPosts(query: string, subreddits: string[]): Promise<Re
   return posts;
 }
 
-// ─── News — CryptoCompare primary, Reddit trusted links fallback ──────────────
+// ─── News — RSS from trusted outlets via rss2json ────────────────────────────
 
-async function fetchCCNews(): Promise<NewsItem[]> {
-  const cacheKey = 'news:combined';
+async function fetchRSSNews(): Promise<NewsItem[]> {
+  const cacheKey = 'news:rss';
   const cached = getCache<NewsItem[]>(cacheKey);
   if (cached) return cached;
 
-  // 1. CryptoCompare — filters to known trusted sources
-  try {
-    logger.debug('api', 'GET CryptoCompare news');
-    const ccKey = import.meta.env.VITE_CRYPTOCOMPARE_API_KEY as string | undefined;
-    const headers: Record<string, string> = {};
-    if (ccKey) headers['authorization'] = `Apikey ${ccKey}`;
+  logger.debug('api', 'GET RSS feeds from trusted outlets');
 
-    const res = await fetch(
-      'https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=latest',
-      { headers }
-    );
-    if (res.ok) {
+  const results = await Promise.allSettled(
+    RSS_SOURCES.map(async ({ feed, source }) => {
+      const res = await fetch(RSS2JSON + encodeURIComponent(feed));
+      if (!res.ok) return [] as NewsItem[];
       const json = await res.json();
+      if (json.status !== 'ok') return [] as NewsItem[];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const items: NewsItem[] = (json.Data ?? [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((item: any) => {
-          const name = (item.source_info?.name ?? item.source ?? '').toLowerCase();
-          return TRUSTED_CC_SOURCES.has(name);
-        })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .slice(0, 14).map((item: any, i: number) => ({
-          id: i + 1,
-          title: item.title,
-          source: item.source_info?.name ?? item.source,
-          timeAgo: timeAgo(item.published_on),
-          url: item.url,
-          trusted: true,
-        }));
-      if (items.length >= 3) {
-        setCache(cacheKey, items, TTL.news);
-        return items;
-      }
-    }
-  } catch (e) {
-    logger.warn('api', 'CryptoCompare news failed', { error: String(e) });
+      return (json.items ?? []).slice(0, 6).map((item: any) => ({
+        title: item.title as string,
+        source,
+        timeAgo: item.pubDate
+          ? timeAgo(Math.floor(new Date(item.pubDate).getTime() / 1000))
+          : 'recently',
+        url: item.link as string,
+        trusted: true,
+      }));
+    })
+  );
+
+  const all: NewsItem[] = results
+    .flatMap(r => r.status === 'fulfilled' ? r.value : [])
+    .map((item, i) => ({ ...item, id: i + 1 }));
+
+  if (all.length > 0) {
+    setCache(cacheKey, all, TTL.news);
+  } else {
+    // Cache the empty result briefly so we don't hammer rss2json on every render
+    setCache(cacheKey, [], TTL.error);
   }
 
-  // 2. Fallback — scan r/CryptoCurrency link posts for articles from trusted domains
-  try {
-    logger.debug('api', 'GET Reddit trusted news links (fallback)');
-    const res = await fetch(
-      'https://www.reddit.com/r/CryptoCurrency+Bitcoin/new.json?limit=60&raw_json=1',
-      { headers: { Accept: 'application/json' } }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const items: NewsItem[] = (json.data?.children ?? [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((c: any) => {
-          if (!c.data.url || c.data.is_self) return false;
-          const domain = extractDomain(c.data.url);
-          return TRUSTED_DOMAINS.has(domain) && c.data.score >= 5;
-        })
-        .slice(0, 14)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((c: any, i: number) => {
-          const domain = extractDomain(c.data.url);
-          return {
-            id: i + 1,
-            title: c.data.title,
-            source: DOMAIN_DISPLAY[domain] ?? domain,
-            timeAgo: timeAgo(c.data.created_utc),
-            url: c.data.url,
-            trusted: true,
-          };
-        });
-      if (items.length >= 3) {
-        setCache(cacheKey, items, TTL.news);
-        return items;
-      }
-    }
-  } catch (e) {
-    logger.warn('api', 'Reddit news fallback failed', { error: String(e) });
-  }
-
-  return [];
+  return all;
 }
 
 // ─── Derived data builders ────────────────────────────────────────────────────
@@ -393,7 +317,7 @@ export const api = {
       if (r.status === 'fulfilled') {
         sentMap.set(TRENDING_GECKO_IDS[i], { sentiment: r.value.sentiment, confidence: r.value.confidence });
       } else {
-        logger.warn('api', `Trending sentiment failed for ${TRENDING_GECKO_IDS[i]}`, { reason: String(r.reason) });
+        logger.warn('api', `Sentiment failed for ${TRENDING_GECKO_IDS[i]}`, { reason: String(r.reason) });
         sentMap.set(TRENDING_GECKO_IDS[i], { sentiment: 'Mixed', confidence: 50 });
       }
     });
@@ -413,7 +337,7 @@ export const api = {
   },
 
   async getNews(): Promise<NewsItem[]> {
-    return fetchCCNews();
+    return fetchRSSNews();
   },
 
   async getRedditDiscussions(): Promise<RedditDiscussion[]> {
@@ -422,7 +346,7 @@ export const api = {
     if (cached) return cached;
 
     const subs = 'CryptoCurrency+Bitcoin+ethereum+CryptoMarkets';
-    const url = `https://www.reddit.com/r/${subs}/hot.json?limit=35&raw_json=1`;
+    const url = REDDIT(`/r/${subs}/hot.json?limit=35&raw_json=1`);
 
     logger.debug('api', 'GET Reddit hot discussions');
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
