@@ -1,19 +1,6 @@
-/**
- * N-Tier Architecture — Application / Middle Tier
- *
- * All data flows through this module. Real data sources:
- *   • CoinGecko v3  — live crypto prices (free, no key required)
- *   • Reddit JSON   — public Reddit posts for sentiment analysis
- *   • CryptoCompare — crypto news headlines (free, no key required)
- *
- * 12-Factor App compliance:
- *   Factor III — optional API keys from environment variables
- *   Factor IV  — each data source is an attached backing service
- *   Factor XI  — every fetch is logged as a console event stream
- */
-
 import { analyzeSentiment } from './sentiment';
 import { resolveCoin, TRENDING_GECKO_IDS } from './coinMapping';
+import { logger } from './logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,7 +56,7 @@ export interface CoinSentimentResult {
   subredditBreakdown: SubredditEntry[];
   sentimentHistory: SentimentPoint[];
   posts: Post[];
-  topPost: Post;
+  topPost: Post | undefined;
 }
 
 // ─── Internal TTL cache ───────────────────────────────────────────────────────
@@ -79,7 +66,6 @@ const _cache = new Map<string, { data: unknown; exp: number }>();
 function getCache<T>(key: string): T | null {
   const hit = _cache.get(key);
   if (!hit || Date.now() > hit.exp) return null;
-  console.log(`[cache] hit ${key}`);
   return hit.data as T;
 }
 
@@ -88,9 +74,9 @@ function setCache<T>(key: string, data: T, ttlMs: number): void {
 }
 
 const TTL = {
-  prices: 60_000,       // 1 min  – prices change frequently
-  reddit: 5 * 60_000,   // 5 min  – Reddit posts are stable
-  news:   10 * 60_000,  // 10 min – headlines rotate slowly
+  prices: 60_000,
+  reddit: 5 * 60_000,
+  news:   10 * 60_000,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -132,7 +118,7 @@ async function fetchGeckoMarkets(ids: string[]): Promise<GeckoMarket[]> {
     `&ids=${ids.join(',')}` +
     `&order=market_cap_desc&per_page=${ids.length}&page=1&sparkline=false`;
 
-  console.log('[api] GET CoinGecko markets');
+  logger.debug('api', 'GET CoinGecko markets');
   const res = await fetch(url);
   if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
   const data: GeckoMarket[] = await res.json();
@@ -162,7 +148,7 @@ async function fetchRedditPosts(query: string, subreddits: string[]): Promise<Re
     `https://www.reddit.com/r/${subs}/search.json` +
     `?q=${encodeURIComponent(query)}&sort=hot&limit=100&t=week&raw_json=1`;
 
-  console.log(`[api] GET Reddit posts for "${query}"`);
+  logger.debug('api', `GET Reddit posts for "${query}"`);
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`Reddit HTTP ${res.status}`);
 
@@ -189,9 +175,8 @@ async function fetchCCNews(): Promise<NewsItem[]> {
   const cached = getCache<NewsItem[]>(cacheKey);
   if (cached) return cached;
 
-  // 1. Try CryptoCompare (with optional API key)
   try {
-    console.log('[api] GET CryptoCompare news');
+    logger.debug('api', 'GET CryptoCompare news');
     const ccKey = import.meta.env.VITE_CRYPTOCOMPARE_API_KEY as string | undefined;
     const headers: Record<string, string> = {};
     if (ccKey) headers['authorization'] = `Apikey ${ccKey}`;
@@ -217,11 +202,10 @@ async function fetchCCNews(): Promise<NewsItem[]> {
       }
     }
   } catch (e) {
-    console.warn('[api] CryptoCompare news failed, falling back to HN Algolia:', e);
+    logger.warn('api', 'CryptoCompare news failed, falling back to HN Algolia', { error: String(e) });
   }
 
-  // 2. Fallback: Hacker News Algolia — always CORS-free, no key needed
-  console.log('[api] GET Hacker News Algolia (crypto news fallback)');
+  logger.debug('api', 'GET Hacker News Algolia (crypto news fallback)');
   const hnRes = await fetch(
     'https://hn.algolia.com/api/v1/search?query=bitcoin+ethereum+cryptocurrency+crypto&tags=story&numericFilters=points>5&hitsPerPage=15'
   );
@@ -256,7 +240,6 @@ function buildSentimentHistory(posts: RedditRaw[]): SentimentPoint[] {
   const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const nowSec = Math.floor(Date.now() / 1000);
 
-  // Build ordered buckets for the last 7 days (oldest → newest)
   const buckets: { label: string; texts: string[] }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date((nowSec - i * 86400) * 1000);
@@ -313,10 +296,8 @@ function toPost(raw: RedditRaw, sentiment: Sentiment, idx: number): Post {
 export const api = {
 
   async getTrending(): Promise<Coin[]> {
-    // 1. Fetch live prices
     const markets = await fetchGeckoMarkets(TRENDING_GECKO_IDS);
 
-    // 2. Fetch Reddit sentiment for each coin in parallel (3 subs each for speed)
     const sentiments = await Promise.allSettled(
       TRENDING_GECKO_IDS.map(async (id) => {
         const info = resolveCoin(id)!;
@@ -328,12 +309,9 @@ export const api = {
     const sentMap = new Map<string, { sentiment: Sentiment; confidence: number }>();
     sentiments.forEach((r, i) => {
       if (r.status === 'fulfilled') {
-        sentMap.set(TRENDING_GECKO_IDS[i], {
-          sentiment: r.value.sentiment,
-          confidence: r.value.confidence,
-        });
+        sentMap.set(TRENDING_GECKO_IDS[i], { sentiment: r.value.sentiment, confidence: r.value.confidence });
       } else {
-        console.warn(`[api] Trending sentiment failed for ${TRENDING_GECKO_IDS[i]}:`, r.reason);
+        logger.warn('api', `Trending sentiment failed for ${TRENDING_GECKO_IDS[i]}`, { reason: String(r.reason) });
         sentMap.set(TRENDING_GECKO_IDS[i], { sentiment: 'Mixed', confidence: 50 });
       }
     });
@@ -401,7 +379,6 @@ export const api = {
     const info = resolveCoin(query);
     const geckoId = info?.geckoId ?? query.toLowerCase();
 
-    // ── Price ──
     let price = 'N/A';
     let change = 0;
     let name = info?.name ?? (query.charAt(0).toUpperCase() + query.slice(1));
@@ -414,24 +391,21 @@ export const api = {
         name   = markets[0].name;
       }
     } catch (e) {
-      console.warn('[api] CoinGecko price failed:', e);
+      logger.warn('api', 'CoinGecko price failed', { error: String(e) });
     }
 
-    // ── Reddit posts ──
     const subreddits = info?.subreddits ?? ['CryptoCurrency', 'wallstreetbets', 'investing'];
     let rawPosts: RedditRaw[] = [];
 
     try {
       rawPosts = await fetchRedditPosts(query, subreddits);
     } catch (e) {
-      console.warn('[api] Reddit fetch failed:', e);
+      logger.warn('api', 'Reddit fetch failed', { error: String(e) });
     }
 
-    // ── Sentiment ──
     const texts = rawPosts.map(p => p.title + ' ' + p.selftext);
     const overallSentiment = analyzeSentiment(texts);
 
-    // ── Score each post individually ──
     const scoredPosts: Post[] = rawPosts
       .slice(0, 15)
       .map((raw, i) => {
@@ -439,7 +413,7 @@ export const api = {
         return toPost(raw, sentiment, i + 1);
       });
 
-    const topPost = [...scoredPosts].sort((a, b) => b.upvotes - a.upvotes)[0] ?? scoredPosts[0];
+    const topPost = [...scoredPosts].sort((a, b) => b.upvotes - a.upvotes)[0];
 
     return {
       name,
