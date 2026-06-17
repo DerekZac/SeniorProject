@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { TrendingUp, Shield, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { loginStep1, loginStep2, type StoredUser } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
 import { logger } from '../lib/logger';
@@ -10,8 +10,6 @@ import {
   clearAttempts,
   getRemainingAttempts,
 } from '../lib/rateLimit';
-
-const MAX_ATTEMPTS = 5;
 
 export default function Login() {
   const [username, setUsername]         = useState('');
@@ -83,54 +81,57 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center px-4">
-      <div className="bg-[#1A1D27] border border-[#2A2D3A] rounded-xl p-8 w-full max-w-sm">
+    <div style={{ minHeight: 'calc(100vh - 3.5rem)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+      <div style={{ background: '#16162A', border: '1px solid #21213A', borderRadius: '12px', padding: '2.5rem 2rem', width: '100%', maxWidth: '22rem' }}>
 
-        <div className="flex justify-center mb-6">
-          <div className="w-12 h-12 bg-[#4B6BFB] rounded-xl flex items-center justify-center">
-            {step === 'mfa'
-              ? <Shield size={24} className="text-white" />
-              : <TrendingUp size={24} className="text-white" />}
-          </div>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <span style={{ fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
+            Crypt<span style={{ color: '#F7931A' }}>on</span>
+          </span>
         </div>
 
-        <h1 className="text-xl font-bold text-white text-center mb-1">
-          {step === 'credentials' ? 'Sign in to Crypton' : 'Two-Factor Authentication'}
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#FFFFFF', textAlign: 'center', marginBottom: '0.375rem' }}>
+          {step === 'credentials' ? 'Sign in' : 'Two-factor verification'}
         </h1>
-        <p className="text-[#8A8FA8] text-sm text-center mb-6">
+        <p style={{ fontSize: '0.875rem', color: '#5A5A7A', textAlign: 'center', marginBottom: '2rem' }}>
           {step === 'credentials'
             ? 'Enter your credentials to continue'
-            : <>Open your authenticator app for <strong className="text-white">{pendingUser?.username}</strong></>}
+            : <>Open your authenticator app for <strong style={{ color: '#E8E8F0' }}>{pendingUser?.username}</strong></>}
         </p>
 
         {error && (
-          <div className="flex items-start gap-2 bg-[#FF4D4D]/10 border border-[#FF4D4D]/30 rounded-lg px-3 py-2.5 mb-4">
-            <AlertCircle size={15} className="text-[#FF4D4D] mt-0.5 flex-shrink-0" />
-            <p className="text-[#FF4D4D] text-sm">{error}</p>
+          <div style={{ display: 'flex', gap: '0.625rem', background: 'rgba(255,51,85,0.08)', border: '1px solid rgba(255,51,85,0.25)', borderRadius: '8px', padding: '0.75rem 0.875rem', marginBottom: '1.25rem' }}>
+            <AlertCircle size={15} style={{ color: '#FF3355', marginTop: '0.125rem', flexShrink: 0 }} />
+            <p style={{ fontSize: '0.875rem', color: '#FF3355' }}>{error}</p>
           </div>
         )}
 
         {step === 'credentials' && (
-          <form onSubmit={handleCredentials} className="flex flex-col gap-4">
+          <form onSubmit={handleCredentials} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
-              <label className="text-[#8A8FA8] text-sm mb-1 block">Username</label>
+              <label style={{ fontSize: '0.8125rem', color: '#5A5A7A', display: 'block', marginBottom: '0.375rem' }}>
+                Username
+              </label>
               <input
+                className="auth-input"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full bg-[#0D0F14] border border-[#2A2D3A] text-white rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#4B6BFB] transition-colors"
                 placeholder="Enter username"
                 autoComplete="username"
                 required
               />
             </div>
             <div>
-              <label className="text-[#8A8FA8] text-sm mb-1 block">Password</label>
-              <div className="relative">
+              <label style={{ fontSize: '0.8125rem', color: '#5A5A7A', display: 'block', marginBottom: '0.375rem' }}>
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
                 <input
+                  className="auth-input"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-[#0D0F14] border border-[#2A2D3A] text-white rounded-lg px-4 py-2.5 pr-10 text-sm outline-none focus:border-[#4B6BFB] transition-colors"
+                  style={{ paddingRight: '2.5rem' }}
                   placeholder="Enter password"
                   autoComplete="current-password"
                   required
@@ -138,18 +139,14 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8A8FA8] hover:text-white transition-colors"
                   tabIndex={-1}
+                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#5A5A7A', padding: 0, display: 'flex', alignItems: 'center' }}
                 >
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="bg-[#4B6BFB] text-white py-2.5 rounded-lg font-medium text-sm hover:bg-[#3a5ae8] transition-colors mt-2 disabled:opacity-60 flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={loading} className="auth-btn" style={{ marginTop: '0.25rem' }}>
               {loading && <Loader2 size={15} className="animate-spin" />}
               Continue →
             </button>
@@ -157,13 +154,15 @@ export default function Login() {
         )}
 
         {step === 'mfa' && (
-          <form onSubmit={handleMFA} className="flex flex-col gap-4">
+          <form onSubmit={handleMFA} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
-              <label className="text-[#8A8FA8] text-sm mb-1 block">6-Digit Code</label>
+              <label style={{ fontSize: '0.8125rem', color: '#5A5A7A', display: 'block', marginBottom: '0.375rem' }}>
+                6-Digit Code
+              </label>
               <input
+                className="auth-input is-mono"
                 value={mfaToken}
                 onChange={e => setMfaToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full bg-[#0D0F14] border border-[#2A2D3A] text-white rounded-lg px-4 py-3 text-xl font-mono outline-none focus:border-[#4B6BFB] transition-colors tracking-[0.5em] text-center"
                 placeholder="000000"
                 maxLength={6}
                 autoFocus
@@ -172,18 +171,14 @@ export default function Login() {
                 required
               />
             </div>
-            <button
-              type="submit"
-              disabled={loading || mfaToken.length !== 6}
-              className="bg-[#4B6BFB] text-white py-2.5 rounded-lg font-medium text-sm hover:bg-[#3a5ae8] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={loading || mfaToken.length !== 6} className="auth-btn">
               {loading && <Loader2 size={15} className="animate-spin" />}
               Verify & Sign In
             </button>
             <button
               type="button"
+              className="auth-btn-secondary"
               onClick={() => { setStep('credentials'); setError(''); setMfaToken(''); }}
-              className="text-[#8A8FA8] text-sm hover:text-white text-center transition-colors"
             >
               ← Back to credentials
             </button>
@@ -191,10 +186,10 @@ export default function Login() {
         )}
 
         {step === 'credentials' && (
-          <div className="mt-6 flex items-center justify-center gap-3 text-sm text-[#8A8FA8]">
-            <Link to="/register" className="text-[#4B6BFB] hover:underline">Create account</Link>
-            <span>•</span>
-            <Link to="/forgot-password" className="text-[#4B6BFB] hover:underline">Forgot password?</Link>
+          <div style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', fontSize: '0.875rem' }}>
+            <Link to="/register" style={{ color: '#F7931A', textDecoration: 'none' }}>Create account</Link>
+            <span style={{ color: '#21213A' }}>·</span>
+            <Link to="/forgot-password" style={{ color: '#5A5A7A', textDecoration: 'none' }}>Forgot password?</Link>
           </div>
         )}
       </div>

@@ -73,9 +73,11 @@ function FeaturedCoin({
           <div
             style={{
               height: '100%',
-              width: `${coin.confidence}%`,
+              width: '100%',
               background: sentColor,
-              transition: 'width 0.9s ease-out',
+              transformOrigin: 'left center',
+              transform: `scaleX(${coin.confidence / 100})`,
+              transition: 'transform 0.9s ease-out',
             }}
           />
         </div>

@@ -37,17 +37,7 @@ export default function Navbar() {
             className="flex items-center gap-2.5 flex-shrink-0"
             style={{ textDecoration: 'none' }}
           >
-            <div
-              style={{
-                width: '1.75rem',
-                height: '1.75rem',
-                background: '#F7931A',
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+            <div style={{ width: '1.75rem', height: '1.75rem', background: '#F7931A', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <TrendingUp size={14} color="#fff" />
             </div>
             <span style={{ fontWeight: 700, fontSize: '1rem', color: '#FFFFFF', letterSpacing: '-0.02em' }}>
@@ -55,23 +45,13 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop nav — text only, no icons */}
+          {/* Desktop nav */}
           <div className="hidden md:flex items-center" style={{ gap: '0.125rem' }}>
             {NAV_LINKS.map(({ path, label }) => (
               <Link
                 key={path}
                 to={path}
-                style={{
-                  padding: '0.5rem 0.875rem',
-                  fontSize: '0.875rem',
-                  fontWeight: isActive(pathname, path) ? 600 : 400,
-                  color: isActive(pathname, path) ? '#FFFFFF' : '#5A5A7A',
-                  textDecoration: 'none',
-                  transition: 'color 0.15s ease',
-                  letterSpacing: isActive(pathname, path) ? '-0.01em' : 'normal',
-                }}
-                onMouseEnter={e => { if (!isActive(pathname, path)) (e.currentTarget as HTMLAnchorElement).style.color = '#E8E8F0'; }}
-                onMouseLeave={e => { if (!isActive(pathname, path)) (e.currentTarget as HTMLAnchorElement).style.color = '#5A5A7A'; }}
+                className={`nav-link${isActive(pathname, path) ? ' is-active' : ''}`}
               >
                 {label}
               </Link>
@@ -84,68 +64,18 @@ export default function Navbar() {
               <>
                 <Link
                   to="/profile"
-                  style={{
-                    padding: '0.5rem 0.875rem',
-                    fontSize: '0.875rem',
-                    fontWeight: isActive(pathname, '/profile') ? 600 : 400,
-                    color: isActive(pathname, '/profile') ? '#FFFFFF' : '#5A5A7A',
-                    textDecoration: 'none',
-                    transition: 'color 0.15s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    maxWidth: '10rem',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
+                  className={`nav-link${isActive(pathname, '/profile') ? ' is-active' : ''}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', maxWidth: '10rem' }}
                 >
-                  <User size={14} />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{session?.username}</span>
+                  <User size={14} style={{ flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session?.username}</span>
                 </Link>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    padding: '0.5rem 0.625rem',
-                    color: '#5A5A7A',
-                    transition: 'color 0.15s ease',
-                    display: 'flex', alignItems: 'center',
-                  }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLButtonElement).style.color = '#FF3355')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLButtonElement).style.color = '#5A5A7A')}
-                  title="Sign out"
-                >
+                <button className="logout-btn" onClick={handleLogout} title="Sign out">
                   <LogOut size={14} />
                 </button>
               </>
             ) : (
-              <Link
-                to="/login"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.375rem',
-                  padding: '0.5rem 1rem',
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  color: '#F7931A',
-                  textDecoration: 'none',
-                  border: '1px solid rgba(247,147,26,0.35)',
-                  borderRadius: '6px',
-                  transition: 'border-color 0.15s ease, color 0.15s ease',
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLAnchorElement;
-                  el.style.borderColor = 'rgba(247,147,26,0.7)';
-                  el.style.color = '#F7931A';
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLAnchorElement;
-                  el.style.borderColor = 'rgba(247,147,26,0.35)';
-                  el.style.color = '#F7931A';
-                }}
-              >
+              <Link to="/login" className="signin-link">
                 <LogIn size={14} />
                 Sign in
               </Link>
@@ -182,16 +112,12 @@ export default function Navbar() {
                 to={path}
                 onClick={close}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.875rem',
-                  padding: '0.875rem 0.75rem',
-                  borderRadius: '8px',
+                  display: 'flex', alignItems: 'center', gap: '0.875rem',
+                  padding: '0.875rem 0.75rem', borderRadius: '8px',
                   fontSize: '0.9375rem',
                   fontWeight: isActive(pathname, path) ? 600 : 400,
                   color: isActive(pathname, path) ? '#FFFFFF' : '#5A5A7A',
-                  textDecoration: 'none',
-                  transition: 'background-color 0.12s ease',
+                  textDecoration: 'none', transition: 'background-color 0.12s ease',
                 }}
               >
                 <Icon size={17} />
