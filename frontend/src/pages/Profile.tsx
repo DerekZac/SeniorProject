@@ -6,6 +6,7 @@ import { api, type Coin } from '../lib/api';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { getUserCreatedAt } from '../lib/auth';
+import { Settings, Sun, Moon, DollarSign } from 'lucide-react';
 
 export default function Profile() {
   const { watchlist, toggleWatchlist, searchHistory, clearSearchHistory } = useApp();
@@ -13,6 +14,9 @@ export default function Profile() {
   const navigate = useNavigate();
   const [watchlistCoins, setWatchlistCoins] = useState<Coin[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [darkMode, setDarkMode] = useState(true);
+  const [currency, setCurrency] = useState('USD');
 
   useEffect(() => {
     if (watchlist.length === 0) { setWatchlistCoins([]); return; }
@@ -165,6 +169,63 @@ export default function Profile() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Settings */}
+      <div className="rounded-xl p-6" style={cardStyle}>
+        <div className="flex items-center gap-2 mb-4">
+          <Settings size={15} style={{ color: '#5A5A7A' }} />
+          <h2 className="text-white font-semibold">Settings</h2>
+        </div>
+
+        <div className="flex flex-col gap-0">
+          {/* Dark / Light mode */}
+          <div
+            className="flex items-center justify-between py-3 border-b"
+            style={{ borderColor: '#21213A' }}
+          >
+            <div className="flex items-center gap-2">
+              {darkMode ? <Moon size={14} style={{ color: '#5A5A7A' }} /> : <Sun size={14} style={{ color: '#5A5A7A' }} />}
+              <span className="text-sm text-white">Theme</span>
+            </div>
+            <button
+              onClick={() => setDarkMode(d => !d)}
+              className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0"
+              style={{ background: darkMode ? 'rgba(247,147,26,0.4)' : '#21213A' }}
+              aria-label="Toggle theme"
+            >
+              <span
+                className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                style={{
+                  background: darkMode ? '#F7931A' : '#5A5A7A',
+                  left: darkMode ? '1.25rem' : '0.125rem',
+                }}
+              />
+            </button>
+          </div>
+
+          {/* Currency */}
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-2">
+              <DollarSign size={14} style={{ color: '#5A5A7A' }} />
+              <span className="text-sm text-white">Display Currency</span>
+            </div>
+            <select
+              value={currency}
+              onChange={e => setCurrency(e.target.value)}
+              className="text-xs rounded-lg px-2.5 py-1.5 outline-none cursor-pointer transition-colors"
+              style={{
+                background: '#0F0F1A',
+                border: '1px solid #21213A',
+                color: '#B0B0C8',
+              }}
+            >
+              {['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'BTC', 'ETH'].map(c => (
+                <option key={c} value={c} style={{ background: '#16162A' }}>{c}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
     </div>
   );
