@@ -259,3 +259,10 @@ body {
   align-items: center;
 }
 .logout-btn:hover { color: #FF3355; }
+
+/* ── Ticker animation ────────────────────────────────────── */
+
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
