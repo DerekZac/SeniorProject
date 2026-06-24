@@ -96,7 +96,7 @@ const TTL = {
 // corsproxy.io is a free CORS proxy that relays the request server-side.
 
 const REDDIT = (path: string) =>
-  `https://corsproxy.io/?https://www.reddit.com${path}`;
+  `https://proxy.cors.sh/https://www.reddit.com${path}`;
 
 // ─── RSS news sources ─────────────────────────────────────────────────────────
 
