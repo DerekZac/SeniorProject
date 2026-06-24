@@ -22,7 +22,7 @@ export default function Register() {
   const { refresh } = useAuth();
   const navigate    = useNavigate();
 
-  const handleAccountStep = (e: React.FormEvent) => {
+const handleAccountStep = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -43,7 +43,7 @@ export default function Register() {
       return;
     }
 
-    const setup = generateTOTPSetup(username);
+    const setup = await generateTOTPSetup(username);
     setMfaSetup(setup);
     setStep('mfa');
     logger.info('auth', 'Account step complete, generating TOTP setup', { username });
