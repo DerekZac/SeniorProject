@@ -1,4 +1,8 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { getSession } from '../lib/auth';
+
+const API_URL = import.meta.env.VITE_API_URL || '';
+const USE_BACKEND = API_URL !== '';
 
 interface AppContextValue {
   watchlist: string[];
@@ -20,6 +24,35 @@ function readStorage<T>(key: string, fallback: T): T {
   }
 }
 
+// Save watchlist to backend
+async function saveWatchlistToBackend(username: string, coins: string[]) {
+  if (!USE_BACKEND || !username) return;
+  try {
+    await fetch(`${API_URL}/api/auth/watchlist/${encodeURIComponent(username)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coins }),
+    });
+  } catch (e) {
+    console.warn('Failed to save watchlist to backend', e);
+  }
+}
+
+// Load watchlist from backend
+async function loadWatchlistFromBackend(username: string): Promise<string[] | null> {
+  if (!USE_BACKEND || !username) return null;
+  try {
+    const res = await fetch(`${API_URL}/api/auth/watchlist/${encodeURIComponent(username)}`);
+    const data = await res.json();
+    if (data.success && Array.isArray(data.watchlist)) {
+      return data.watchlist.filter((c: string) => c.trim() !== '');
+    }
+  } catch (e) {
+    console.warn('Failed to load watchlist from backend', e);
+  }
+  return null;
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [watchlist, setWatchlist] = useState<string[]>(() =>
     readStorage<string[]>('crypton_watchlist', [])
@@ -28,6 +61,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     readStorage<string[]>('crypton_search_history', [])
   );
 
+  // On mount, load watchlist from backend if logged in
+  useEffect(() => {
+    const session = getSession();
+    if (session?.username) {
+      loadWatchlistFromBackend(session.username).then(coins => {
+        if (coins !== null) {
+          setWatchlist(coins);
+          localStorage.setItem('crypton_watchlist', JSON.stringify(coins));
+        }
+      });
+    }
+  }, []);
+
+  // Save to localStorage whenever watchlist changes
   useEffect(() => {
     localStorage.setItem('crypton_watchlist', JSON.stringify(watchlist));
   }, [watchlist]);
@@ -36,10 +83,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('crypton_search_history', JSON.stringify(searchHistory));
   }, [searchHistory]);
 
-  const toggleWatchlist = (ticker: string) =>
-    setWatchlist(prev =>
-      prev.includes(ticker) ? prev.filter(t => t !== ticker) : [...prev, ticker]
-    );
+  const toggleWatchlist = (ticker: string) => {
+    setWatchlist(prev => {
+      const next = prev.includes(ticker)
+        ? prev.filter(t => t !== ticker)
+        : [...prev, ticker];
+
+      // Save to backend
+      const session = getSession();
+      if (session?.username) {
+        saveWatchlistToBackend(session.username, next);
+      }
+
+      return next;
+    });
+  };
 
   const isWatchlisted = (ticker: string) => watchlist.includes(ticker);
 
