@@ -56,6 +56,20 @@ export interface SentimentPoint {
   score: number;
 }
 
+// ─── AI Sentiment from Python/Gemini backend ──────────────────────────────────
+
+export interface AISentiment {
+  classification: 'Bullish' | 'Neutral' | 'Bearish';
+  confidence: number;
+  market_score: number;
+  summary: string;
+  bullish_points: string[];
+  bearish_points: string[];
+  important_events: string[];
+  short_term: string;
+  long_term: string;
+}
+
 export interface CoinSentimentResult {
   name: string;
   ticker: string;
@@ -68,6 +82,7 @@ export interface CoinSentimentResult {
   sentimentHistory: SentimentPoint[];
   posts: Post[];
   topPost: Post | undefined;
+  aiSentiment?: AISentiment;
 }
 
 // ─── Internal TTL cache ───────────────────────────────────────────────────────
@@ -88,12 +103,44 @@ const TTL = {
   prices: 60_000,
   reddit: 5 * 60_000,
   news:   10 * 60_000,
-  error:  30_000,       // cache failures for 30s to avoid hammering
+  ai:     15 * 60_000,
+  error:  30_000,
 };
 
+// ─── Python AI backend ────────────────────────────────────────────────────────
+
+const AI_URL = 'http://127.0.0.1:8000';
+
+async function fetchAISentiment(
+  coin: string,
+  ticker: string,
+  articles: { title: string; source: string; url: string }[]
+): Promise<AISentiment | null> {
+  const cacheKey = `ai:${ticker}`;
+  const cached = getCache<AISentiment>(cacheKey);
+  if (cached) return cached;
+
+  if (articles.length === 0) return null;
+
+  try {
+    logger.debug('api', `GET AI sentiment for ${coin}`);
+    const res = await fetch(`${AI_URL}/classify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coin, ticker, articles: articles.slice(0, 5) }),
+    });
+
+    if (!res.ok) return null;
+    const data: AISentiment = await res.json();
+    setCache(cacheKey, data, TTL.ai);
+    return data;
+  } catch (e) {
+    logger.warn('api', 'AI sentiment fetch failed', { error: String(e) });
+    return null;
+  }
+}
+
 // ─── Reddit CORS proxy ────────────────────────────────────────────────────────
-// Reddit blocks direct browser requests from non-localhost origins.
-// corsproxy.io is a free CORS proxy that relays the request server-side.
 
 const REDDIT = (path: string) =>
   `https://proxy.cors.sh/https://www.reddit.com${path}`;
@@ -232,11 +279,21 @@ async function fetchRSSNews(): Promise<NewsItem[]> {
   if (all.length > 0) {
     setCache(cacheKey, all, TTL.news);
   } else {
-    // Cache the empty result briefly so we don't hammer rss2json on every render
     setCache(cacheKey, [], TTL.error);
   }
 
   return all;
+}
+
+// ─── Filter news by coin ──────────────────────────────────────────────────────
+
+function filterNewsByCoin(news: NewsItem[], coinName: string, ticker: string): NewsItem[] {
+  const lower = coinName.toLowerCase();
+  const tick  = ticker.toLowerCase();
+  return news.filter(n =>
+    n.title.toLowerCase().includes(lower) ||
+    n.title.toLowerCase().includes(tick)
+  );
 }
 
 // ─── Derived data builders ────────────────────────────────────────────────────
@@ -458,6 +515,22 @@ export const api = {
 
     const topPost = [...scoredPosts].sort((a, b) => b.upvotes - a.upvotes)[0];
 
+    // Fetch AI sentiment from Python/Gemini backend using RSS news articles
+    let aiSentiment: AISentiment | undefined;
+    try {
+      const allNews = await fetchRSSNews();
+      const coinNews = filterNewsByCoin(allNews, name, info?.ticker ?? query.toUpperCase());
+      const articles = coinNews.slice(0, 5).map(n => ({
+        title: n.title,
+        source: n.source,
+        url: n.url,
+      }));
+      const result = await fetchAISentiment(name, info?.ticker ?? query.toUpperCase(), articles);
+      if (result) aiSentiment = result;
+    } catch (e) {
+      logger.warn('api', 'AI sentiment failed', { error: String(e) });
+    }
+
     return {
       name,
       ticker: info?.ticker ?? query.toUpperCase(),
@@ -470,6 +543,7 @@ export const api = {
       sentimentHistory: buildSentimentHistory(rawPosts),
       posts: scoredPosts,
       topPost,
+      aiSentiment,
     };
   },
 };
