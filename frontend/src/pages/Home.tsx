@@ -254,10 +254,10 @@ export default function Home() {
             {/* Left — headline */}
             <div>
               <p className="section-label" style={{ marginBottom: '1.875rem' }}>
-                Live Reddit Sentiment
+                Live Community Sentiment
               </p>
               <h1 className="hero-display" style={{ marginBottom: '2.75rem' }}>
-                Reddit moves<br />before the charts.
+                Before Price,<br />There's Sentiment.
               </h1>
               <p
                 style={{
