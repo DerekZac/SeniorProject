@@ -101,7 +101,7 @@ const REDDIT = (path: string) =>
 // ─── RSS news sources ─────────────────────────────────────────────────────────
 
 const RSS_SOURCES = [
-  { feed: 'https://feeds.feedburner.com/CoinDesk',  source: 'CoinDesk' },
+  { feed: 'https://feeds.feedburner.com/CoinDesk',   source: 'CoinDesk' },
   { feed: 'https://cointelegraph.com/rss',           source: 'CoinTelegraph' },
   { feed: 'https://decrypt.co/feed',                 source: 'Decrypt' },
   { feed: 'https://blockworks.co/feed',              source: 'Blockworks' },
