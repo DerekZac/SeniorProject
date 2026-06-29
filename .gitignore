@@ -37,3 +37,5 @@ frontend/screenshot-test.mjs
 
 # Playwright browsers
 /frontend/node_modules/.cache/ms-playwright/
+frontend/.env.example
+venv/
