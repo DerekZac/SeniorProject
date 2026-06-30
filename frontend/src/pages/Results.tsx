@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, Star } from 'lucide-react';
+import { ArrowRight, Star, Sparkles, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import SentimentBadge from '../components/SentimentBadge';
 import { SkeletonResultPage } from '../components/Skeleton';
@@ -19,25 +19,43 @@ const COLORS = {
   mixed:   '#FFB020',
 };
 
+function aiColor(classification: string) {
+  if (classification === 'Bullish') return '#00E676';
+  if (classification === 'Bearish') return '#FF3355';
+  return '#FFB020';
+}
+
 export default function Results() {
   const { coin } = useParams<{ coin: string }>();
   const [data, setData]       = useState<CoinSentimentResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   const { isWatchlisted, toggleWatchlist } = useApp();
 
   useEffect(() => {
     setLoading(true);
     setData(null);
-    api.getCoinSentiment(coin ?? 'bitcoin').then(d => {
+    api.getCoinSentimentNoAI(coin ?? 'bitcoin').then(d => {
       setData(d);
       setLoading(false);
     });
   }, [coin]);
 
+  const handleGetAI = async () => {
+    if (!data) return;
+    setAiLoading(true);
+    try {
+      const result = await api.getCoinSentiment(coin ?? 'bitcoin');
+      setData(result);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   if (loading) return <SkeletonResultPage />;
   if (!data)   return null;
 
-  const { name, ticker, sentiment, confidence, price, change, keywords, subredditBreakdown } = data;
+  const { name, ticker, sentiment, confidence, price, change, keywords, subredditBreakdown, aiSentiment } = data;
   const up             = change >= 0;
   const sentimentColor = sentiment === 'Bullish' ? COLORS.bullish : sentiment === 'Bearish' ? COLORS.bearish : COLORS.mixed;
   const watchlisted    = isWatchlisted(ticker);
@@ -99,7 +117,6 @@ export default function Results() {
           </div>
         </div>
 
-        {/* Plain-language explanation */}
         <p
           className="text-sm max-w-md mx-auto rounded-xl px-4 py-3"
           style={{ color: '#5A5A7A', background: 'rgba(33,33,58,0.5)' }}
@@ -107,6 +124,112 @@ export default function Results() {
           {PLAIN_LANGUAGE[sentiment]}
         </p>
       </div>
+
+      {/* AI Sentiment Section */}
+      {!aiSentiment && !aiLoading && (
+        <button
+          onClick={handleGetAI}
+          className="w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+          style={{ background: '#16162A', border: '1px solid #21213A', color: '#F7931A' }}
+        >
+          <Sparkles size={16} />
+          Analyze with AI
+        </button>
+      )}
+
+      {aiLoading && (
+        <div
+          className="rounded-xl p-5 md:p-6 flex items-center gap-3"
+          style={{ background: '#16162A', border: '1px solid #21213A' }}
+        >
+          <Loader2 size={16} className="animate-spin" style={{ color: '#F7931A' }} />
+          <span style={{ color: '#5A5A7A' }}>Analyzing news with Gemini AI...</span>
+        </div>
+      )}
+
+      {aiSentiment && (
+        <div
+          className="rounded-xl p-5 md:p-6"
+          style={{ background: '#16162A', border: `1px solid ${aiColor(aiSentiment.classification)}40` }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles size={16} style={{ color: '#F7931A' }} />
+            <h2 className="text-white font-semibold">AI News Analysis</h2>
+            <span
+              className="ml-auto text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{
+                color: aiColor(aiSentiment.classification),
+                background: `${aiColor(aiSentiment.classification)}18`,
+                border: `1px solid ${aiColor(aiSentiment.classification)}30`,
+              }}
+            >
+              {aiSentiment.classification}
+            </span>
+          </div>
+
+          <p className="text-sm mb-4" style={{ color: '#A0A0B8', lineHeight: 1.6 }}>
+            {aiSentiment.summary}
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {aiSentiment.bullish_points.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <TrendingUp size={13} style={{ color: '#00E676' }} />
+                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#00E676' }}>
+                    Bullish Catalysts
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {aiSentiment.bullish_points.slice(0, 3).map((p, i) => (
+                    <li key={i} className="text-xs flex gap-2" style={{ color: '#A0A0B8' }}>
+                      <span style={{ color: '#00E676' }}>+</span> {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {aiSentiment.bearish_points.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <TrendingDown size={13} style={{ color: '#FF3355' }} />
+                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#FF3355' }}>
+                    Bearish Risks
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {aiSentiment.bearish_points.slice(0, 3).map((p, i) => (
+                    <li key={i} className="text-xs flex gap-2" style={{ color: '#A0A0B8' }}>
+                      <span style={{ color: '#FF3355' }}>−</span> {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-6 pt-3" style={{ borderTop: '1px solid #21213A' }}>
+            <div>
+              <span className="text-xs" style={{ color: '#5A5A7A' }}>Short Term</span>
+              <div className="text-sm font-semibold mt-0.5" style={{ color: aiColor(aiSentiment.short_term) }}>
+                {aiSentiment.short_term}
+              </div>
+            </div>
+            <div>
+              <span className="text-xs" style={{ color: '#5A5A7A' }}>Long Term</span>
+              <div className="text-sm font-semibold mt-0.5" style={{ color: aiColor(aiSentiment.long_term) }}>
+                {aiSentiment.long_term}
+              </div>
+            </div>
+            <div>
+              <span className="text-xs" style={{ color: '#5A5A7A' }}>Market Score</span>
+              <div className="text-sm font-semibold mt-0.5" style={{ color: aiColor(aiSentiment.classification) }}>
+                {aiSentiment.market_score > 0 ? '+' : ''}{aiSentiment.market_score}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Keywords */}
       <div
@@ -180,7 +303,7 @@ export default function Results() {
       {/* CTA */}
       <Link
         to={`/coin/${coin}`}
-        className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-semibold text-white transition-all hover:scale-[1.01] shadow-glow-orange hover:shadow-[0_0_32px_rgba(247,147,26,0.35)]"
+        className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-semibold text-white transition-all hover:scale-[1.01]"
         style={{ background: '#F7931A' }}
       >
         View Full {name} Detail <ArrowRight size={18} />
