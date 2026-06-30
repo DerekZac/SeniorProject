@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, Star, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowRight, Star, Sparkles, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import SentimentBadge from '../components/SentimentBadge';
 import { SkeletonResultPage } from '../components/Skeleton';
@@ -29,16 +29,28 @@ export default function Results() {
   const { coin } = useParams<{ coin: string }>();
   const [data, setData]       = useState<CoinSentimentResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(false);
   const { isWatchlisted, toggleWatchlist } = useApp();
 
   useEffect(() => {
     setLoading(true);
     setData(null);
-    api.getCoinSentiment(coin ?? 'bitcoin').then(d => {
+    api.getCoinSentimentNoAI(coin ?? 'bitcoin').then(d => {
       setData(d);
       setLoading(false);
     });
   }, [coin]);
+
+  const handleGetAI = async () => {
+    if (!data) return;
+    setAiLoading(true);
+    try {
+      const result = await api.getCoinSentiment(coin ?? 'bitcoin');
+      setData(result);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   if (loading) return <SkeletonResultPage />;
   if (!data)   return null;
@@ -113,7 +125,28 @@ export default function Results() {
         </p>
       </div>
 
-      {/* AI Sentiment Card */}
+      {/* AI Sentiment Section */}
+      {!aiSentiment && !aiLoading && (
+        <button
+          onClick={handleGetAI}
+          className="w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+          style={{ background: '#16162A', border: '1px solid #21213A', color: '#F7931A' }}
+        >
+          <Sparkles size={16} />
+          Analyze with AI
+        </button>
+      )}
+
+      {aiLoading && (
+        <div
+          className="rounded-xl p-5 md:p-6 flex items-center gap-3"
+          style={{ background: '#16162A', border: '1px solid #21213A' }}
+        >
+          <Loader2 size={16} className="animate-spin" style={{ color: '#F7931A' }} />
+          <span style={{ color: '#5A5A7A' }}>Analyzing news with Gemini AI...</span>
+        </div>
+      )}
+
       {aiSentiment && (
         <div
           className="rounded-xl p-5 md:p-6"

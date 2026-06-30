@@ -56,8 +56,6 @@ export interface SentimentPoint {
   score: number;
 }
 
-// ─── AI Sentiment from Python/Gemini backend ──────────────────────────────────
-
 export interface AISentiment {
   classification: 'Bullish' | 'Neutral' | 'Bearish';
   confidence: number;
@@ -110,6 +108,7 @@ const TTL = {
 // ─── Python AI backend ────────────────────────────────────────────────────────
 
 const AI_URL = 'http://127.0.0.1:8000';
+const JAVA_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 async function fetchAISentiment(
   coin: string,
@@ -119,6 +118,30 @@ async function fetchAISentiment(
   const cacheKey = `ai:${ticker}`;
   const cached = getCache<AISentiment>(cacheKey);
   if (cached) return cached;
+
+  try {
+    const res = await fetch(`${JAVA_URL}/api/sentiment/${ticker}`);
+    const data = await res.json();
+    if (data.success && data.cached) {
+      const d = data.data;
+      const ai: AISentiment = {
+        classification: d.classification,
+        confidence: d.confidence,
+        market_score: d.market_score,
+        summary: d.summary,
+        bullish_points: d.bullish_points,
+        bearish_points: d.bearish_points,
+        important_events: d.important_events,
+        short_term: d.short_term,
+        long_term: d.long_term,
+      };
+      setCache(cacheKey, ai, TTL.ai);
+      logger.debug('api', `AI sentiment loaded from DB cache for ${ticker}`);
+      return ai;
+    }
+  } catch (e) {
+    logger.warn('api', 'DB cache check failed', { error: String(e) });
+  }
 
   if (articles.length === 0) return null;
 
@@ -131,9 +154,21 @@ async function fetchAISentiment(
     });
 
     if (!res.ok) return null;
-    const data: AISentiment = await res.json();
-    setCache(cacheKey, data, TTL.ai);
-    return data;
+    const result: AISentiment = await res.json();
+
+    try {
+      await fetch(`${JAVA_URL}/api/sentiment/${ticker}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...result, coinName: coin }),
+      });
+      logger.debug('api', `AI sentiment saved to DB for ${ticker}`);
+    } catch (e) {
+      logger.warn('api', 'Failed to save AI sentiment to DB', { error: String(e) });
+    }
+
+    setCache(cacheKey, result, TTL.ai);
+    return result;
   } catch (e) {
     logger.warn('api', 'AI sentiment fetch failed', { error: String(e) });
     return null;
@@ -152,8 +187,9 @@ const RSS_SOURCES = [
   { feed: 'https://cointelegraph.com/rss',           source: 'CoinTelegraph' },
   { feed: 'https://decrypt.co/feed',                 source: 'Decrypt' },
   { feed: 'https://blockworks.co/feed',              source: 'Blockworks' },
+  { feed: 'https://bitcoinmagazine.com/.rss/full/',  source: 'Bitcoin Magazine' },
+  { feed: 'https://cryptoslate.com/feed/',           source: 'CryptoSlate' },
 ];
-
 const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -290,10 +326,15 @@ async function fetchRSSNews(): Promise<NewsItem[]> {
 function filterNewsByCoin(news: NewsItem[], coinName: string, ticker: string): NewsItem[] {
   const lower = coinName.toLowerCase();
   const tick  = ticker.toLowerCase();
-  return news.filter(n =>
+
+  const exact = news.filter(n =>
     n.title.toLowerCase().includes(lower) ||
     n.title.toLowerCase().includes(tick)
   );
+
+  if (exact.length > 0) return exact;
+
+  return news.slice(0, 5);
 }
 
 // ─── Derived data builders ────────────────────────────────────────────────────
@@ -475,7 +516,7 @@ export const api = {
     });
   },
 
-  async getCoinSentiment(query: string): Promise<CoinSentimentResult> {
+  async getCoinSentimentNoAI(query: string): Promise<CoinSentimentResult> {
     const info = resolveCoin(query);
     const geckoId = info?.geckoId ?? query.toLowerCase();
 
@@ -515,22 +556,6 @@ export const api = {
 
     const topPost = [...scoredPosts].sort((a, b) => b.upvotes - a.upvotes)[0];
 
-    // Fetch AI sentiment from Python/Gemini backend using RSS news articles
-    let aiSentiment: AISentiment | undefined;
-    try {
-      const allNews = await fetchRSSNews();
-      const coinNews = filterNewsByCoin(allNews, name, info?.ticker ?? query.toUpperCase());
-      const articles = coinNews.slice(0, 5).map(n => ({
-        title: n.title,
-        source: n.source,
-        url: n.url,
-      }));
-      const result = await fetchAISentiment(name, info?.ticker ?? query.toUpperCase(), articles);
-      if (result) aiSentiment = result;
-    } catch (e) {
-      logger.warn('api', 'AI sentiment failed', { error: String(e) });
-    }
-
     return {
       name,
       ticker: info?.ticker ?? query.toUpperCase(),
@@ -543,7 +568,28 @@ export const api = {
       sentimentHistory: buildSentimentHistory(rawPosts),
       posts: scoredPosts,
       topPost,
-      aiSentiment,
+      aiSentiment: undefined,
     };
+  },
+
+  async getCoinSentiment(query: string): Promise<CoinSentimentResult> {
+    const base = await api.getCoinSentimentNoAI(query);
+
+    let aiSentiment: AISentiment | undefined;
+    try {
+      const allNews = await fetchRSSNews();
+      const coinNews = filterNewsByCoin(allNews, base.name, base.ticker);
+      const articles = coinNews.slice(0, 5).map(n => ({
+        title: n.title,
+        source: n.source,
+        url: n.url,
+      }));
+      const result = await fetchAISentiment(base.name, base.ticker, articles);
+      if (result) aiSentiment = result;
+    } catch (e) {
+      logger.warn('api', 'AI sentiment failed', { error: String(e) });
+    }
+
+    return { ...base, aiSentiment };
   },
 };
