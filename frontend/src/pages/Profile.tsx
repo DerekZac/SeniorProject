@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { User, Star, Clock, X, Shield, LogOut, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import SentimentBadge from '../components/SentimentBadge';
 import { api, type Coin } from '../lib/api';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -120,7 +119,9 @@ export default function Profile() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <SentimentBadge sentiment={coin.sentiment} confidence={coin.confidence} size="sm" />
+                  <span className={`text-xs font-medium ${coin.change >= 0 ? 'text-[#00E676]' : 'text-[#FF3355]'}`}>
+                    {coin.change >= 0 ? '+' : ''}{coin.change}%
+                  </span>
                   <button
                     onClick={() => toggleWatchlist(coin.ticker)}
                     className="p-1 rounded transition-colors hover:text-[#FF3355]"

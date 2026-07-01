@@ -9,6 +9,10 @@ import CoinDetail from "./pages/CoinDetail";
 import Compare from "./pages/Compare";
 import Watchlist from "./pages/Watchlist";
 import News from "./pages/News";
+import Learn from "./pages/Learn";
+import Regulations from "./pages/Regulations";
+import Exchanges from "./pages/Exchanges";
+import Tools from "./pages/Tools";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -28,6 +32,10 @@ export default function App() {
               <Route path="/coin/:coin" element={<CoinDetail />} />
               <Route path="/compare" element={<Compare />} />
               <Route path="/news" element={<News />} />
+              <Route path="/learn" element={<Learn />} />
+              <Route path="/regulations" element={<Regulations />} />
+              <Route path="/exchanges" element={<Exchanges />} />
+              <Route path="/tools" element={<Tools />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />

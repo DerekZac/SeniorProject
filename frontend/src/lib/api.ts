@@ -1,18 +1,13 @@
-import { analyzeSentiment } from './sentiment';
 import { resolveCoin, TRENDING_GECKO_IDS } from './coinMapping';
 import { logger } from './logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-export type Sentiment = 'Bullish' | 'Bearish' | 'Mixed';
 
 export interface Coin {
   ticker: string;
   name: string;
   price: string;
   change: number;
-  sentiment: Sentiment;
-  confidence: number;
 }
 
 export interface NewsItem {
@@ -24,63 +19,23 @@ export interface NewsItem {
   trusted: boolean;
 }
 
-export interface RedditDiscussion {
-  id: string;
-  title: string;
-  subreddit: string;
-  upvotes: number;
-  numComments: number;
-  timeAgo: string;
-  permalink: string;
-  sentiment: Sentiment;
-}
-
-export interface Post {
-  id: number;
-  title: string;
-  upvotes: number;
-  subreddit: string;
-  timeAgo: string;
-  sentiment: Sentiment;
-  permalink?: string;
-}
-
-export interface SubredditEntry {
-  subreddit: string;
-  sentiment: string;
-  score: number;
-}
-
-export interface SentimentPoint {
-  day: string;
-  score: number;
-}
-
-export interface AISentiment {
-  classification: 'Bullish' | 'Neutral' | 'Bearish';
-  confidence: number;
-  market_score: number;
-  summary: string;
-  bullish_points: string[];
-  bearish_points: string[];
-  important_events: string[];
-  short_term: string;
-  long_term: string;
-}
-
-export interface CoinSentimentResult {
-  name: string;
+export interface CoinMarketDetail {
+  geckoId: string;
   ticker: string;
-  sentiment: Sentiment;
-  confidence: number;
+  name: string;
   price: string;
   change: number;
-  keywords: { bullish: string[]; bearish: string[] };
-  subredditBreakdown: SubredditEntry[];
-  sentimentHistory: SentimentPoint[];
-  posts: Post[];
-  topPost: Post | undefined;
-  aiSentiment?: AISentiment;
+  marketCap: string;
+  volume24h: string;
+  circulatingSupply: string;
+  allTimeHigh: string;
+  athDate: string;
+  rank: number;
+}
+
+export interface PricePoint {
+  day: string;
+  price: number;
 }
 
 // ─── Internal TTL cache ───────────────────────────────────────────────────────
@@ -99,86 +54,9 @@ function setCache<T>(key: string, data: T, ttlMs: number): void {
 
 const TTL = {
   prices: 60_000,
-  reddit: 5 * 60_000,
   news:   10 * 60_000,
-  ai:     15 * 60_000,
   error:  30_000,
 };
-
-// ─── Python AI backend ────────────────────────────────────────────────────────
-
-const AI_URL = 'http://127.0.0.1:8000';
-const JAVA_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-
-async function fetchAISentiment(
-  coin: string,
-  ticker: string,
-  articles: { title: string; source: string; url: string }[]
-): Promise<AISentiment | null> {
-  const cacheKey = `ai:${ticker}`;
-  const cached = getCache<AISentiment>(cacheKey);
-  if (cached) return cached;
-
-  try {
-    const res = await fetch(`${JAVA_URL}/api/sentiment/${ticker}`);
-    const data = await res.json();
-    if (data.success && data.cached) {
-      const d = data.data;
-      const ai: AISentiment = {
-        classification: d.classification,
-        confidence: d.confidence,
-        market_score: d.market_score,
-        summary: d.summary,
-        bullish_points: d.bullish_points,
-        bearish_points: d.bearish_points,
-        important_events: d.important_events,
-        short_term: d.short_term,
-        long_term: d.long_term,
-      };
-      setCache(cacheKey, ai, TTL.ai);
-      logger.debug('api', `AI sentiment loaded from DB cache for ${ticker}`);
-      return ai;
-    }
-  } catch (e) {
-    logger.warn('api', 'DB cache check failed', { error: String(e) });
-  }
-
-  if (articles.length === 0) return null;
-
-  try {
-    logger.debug('api', `GET AI sentiment for ${coin}`);
-    const res = await fetch(`${AI_URL}/classify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coin, ticker, articles: articles.slice(0, 5) }),
-    });
-
-    if (!res.ok) return null;
-    const result: AISentiment = await res.json();
-
-    try {
-      await fetch(`${JAVA_URL}/api/sentiment/${ticker}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...result, coinName: coin }),
-      });
-      logger.debug('api', `AI sentiment saved to DB for ${ticker}`);
-    } catch (e) {
-      logger.warn('api', 'Failed to save AI sentiment to DB', { error: String(e) });
-    }
-
-    setCache(cacheKey, result, TTL.ai);
-    return result;
-  } catch (e) {
-    logger.warn('api', 'AI sentiment fetch failed', { error: String(e) });
-    return null;
-  }
-}
-
-// ─── Reddit CORS proxy ────────────────────────────────────────────────────────
-
-const REDDIT = (path: string) =>
-  `https://proxy.cors.sh/https://www.reddit.com${path}`;
 
 // ─── RSS news sources ─────────────────────────────────────────────────────────
 
@@ -208,6 +86,13 @@ function formatPrice(usd: number): string {
   return `$${usd.toFixed(8)}`;
 }
 
+function formatLargeNumber(n: number): string {
+  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+  if (n >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`;
+  return `$${n.toLocaleString()}`;
+}
+
 // ─── CoinGecko ───────────────────────────────────────────────────────────────
 
 const GECKO = 'https://api.coingecko.com/api/v3';
@@ -218,6 +103,12 @@ interface GeckoMarket {
   name: string;
   current_price: number;
   price_change_percentage_24h: number;
+  market_cap: number;
+  total_volume: number;
+  circulating_supply: number;
+  ath: number;
+  ath_date: string;
+  market_cap_rank: number;
 }
 
 async function fetchGeckoMarkets(ids: string[]): Promise<GeckoMarket[]> {
@@ -236,48 +127,6 @@ async function fetchGeckoMarkets(ids: string[]): Promise<GeckoMarket[]> {
   const data: GeckoMarket[] = await res.json();
   setCache(key, data, TTL.prices);
   return data;
-}
-
-// ─── Reddit ───────────────────────────────────────────────────────────────────
-
-interface RedditRaw {
-  id: string;
-  title: string;
-  selftext: string;
-  score: number;
-  subreddit: string;
-  created_utc: number;
-  permalink: string;
-}
-
-async function fetchRedditPosts(query: string, subreddits: string[]): Promise<RedditRaw[]> {
-  const subs = subreddits.join('+');
-  const key = `reddit:${query}:${subs}`;
-  const cached = getCache<RedditRaw[]>(key);
-  if (cached) return cached;
-
-  const url = REDDIT(
-    `/r/${subs}/search.json?q=${encodeURIComponent(query)}&sort=hot&limit=100&t=week&raw_json=1`
-  );
-
-  logger.debug('api', `GET Reddit posts for "${query}"`);
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Reddit HTTP ${res.status}`);
-
-  const json = await res.json();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const posts: RedditRaw[] = (json.data?.children ?? []).map((c: any) => ({
-    id: c.data.id,
-    title: c.data.title,
-    selftext: c.data.selftext || '',
-    score: c.data.score,
-    subreddit: c.data.subreddit,
-    created_utc: c.data.created_utc,
-    permalink: `https://reddit.com${c.data.permalink}`,
-  }));
-
-  setCache(key, posts, TTL.reddit);
-  return posts;
 }
 
 // ─── News — RSS from trusted outlets via rss2json ────────────────────────────
@@ -321,77 +170,16 @@ async function fetchRSSNews(): Promise<NewsItem[]> {
   return all;
 }
 
-// ─── Filter news by coin ──────────────────────────────────────────────────────
+// ─── Public utilities ─────────────────────────────────────────────────────────
 
-function filterNewsByCoin(news: NewsItem[], coinName: string, ticker: string): NewsItem[] {
+export function filterNewsByCoin(news: NewsItem[], coinName: string, ticker: string): NewsItem[] {
   const lower = coinName.toLowerCase();
   const tick  = ticker.toLowerCase();
-
   const exact = news.filter(n =>
     n.title.toLowerCase().includes(lower) ||
     n.title.toLowerCase().includes(tick)
   );
-
-  if (exact.length > 0) return exact;
-
-  return news.slice(0, 5);
-}
-
-// ─── Derived data builders ────────────────────────────────────────────────────
-
-function buildSentimentHistory(posts: RedditRaw[]): SentimentPoint[] {
-  const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const nowSec = Math.floor(Date.now() / 1000);
-
-  const buckets: { label: string; texts: string[] }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date((nowSec - i * 86400) * 1000);
-    buckets.push({ label: DAY_LABELS[d.getDay()], texts: [] });
-  }
-
-  for (const post of posts) {
-    const daysAgo = Math.floor((nowSec - post.created_utc) / 86400);
-    const idx = 6 - daysAgo;
-    if (idx >= 0 && idx < 7) {
-      buckets[idx].texts.push(post.title + ' ' + post.selftext);
-    }
-  }
-
-  return buckets.map(({ label, texts }) => ({
-    day: label,
-    score: texts.length === 0 ? 50 : analyzeSentiment(texts).confidence,
-  }));
-}
-
-function buildSubredditBreakdown(posts: RedditRaw[]): SubredditEntry[] {
-  const bySubreddit = new Map<string, string[]>();
-
-  for (const post of posts) {
-    const sub = `r/${post.subreddit}`;
-    if (!bySubreddit.has(sub)) bySubreddit.set(sub, []);
-    bySubreddit.get(sub)!.push(post.title + ' ' + post.selftext);
-  }
-
-  return Array.from(bySubreddit.entries())
-    .filter(([, texts]) => texts.length >= 2)
-    .map(([subreddit, texts]) => {
-      const { sentiment, confidence } = analyzeSentiment(texts);
-      return { subreddit, sentiment, score: confidence };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 6);
-}
-
-function toPost(raw: RedditRaw, sentiment: Sentiment, idx: number): Post {
-  return {
-    id: idx,
-    title: raw.title,
-    upvotes: raw.score,
-    subreddit: `r/${raw.subreddit}`,
-    timeAgo: timeAgo(raw.created_utc),
-    sentiment,
-    permalink: raw.permalink,
-  };
+  return exact.length > 0 ? exact.slice(0, 5) : news.slice(0, 5);
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -400,35 +188,13 @@ export const api = {
 
   async getTrending(): Promise<Coin[]> {
     const markets = await fetchGeckoMarkets(TRENDING_GECKO_IDS);
-
-    const sentiments = await Promise.allSettled(
-      TRENDING_GECKO_IDS.map(async (id) => {
-        const info = resolveCoin(id)!;
-        const posts = await fetchRedditPosts(id, info.subreddits.slice(0, 3));
-        return { id, ...analyzeSentiment(posts.map(p => p.title + ' ' + p.selftext)) };
-      })
-    );
-
-    const sentMap = new Map<string, { sentiment: Sentiment; confidence: number }>();
-    sentiments.forEach((r, i) => {
-      if (r.status === 'fulfilled') {
-        sentMap.set(TRENDING_GECKO_IDS[i], { sentiment: r.value.sentiment, confidence: r.value.confidence });
-      } else {
-        logger.warn('api', `Sentiment failed for ${TRENDING_GECKO_IDS[i]}`, { reason: String(r.reason) });
-        sentMap.set(TRENDING_GECKO_IDS[i], { sentiment: 'Mixed', confidence: 50 });
-      }
-    });
-
     return markets.map((m) => {
       const info = resolveCoin(m.id);
-      const sent = sentMap.get(m.id) ?? { sentiment: 'Mixed' as Sentiment, confidence: 50 };
       return {
         ticker: info?.ticker ?? m.symbol.toUpperCase(),
         name: m.name,
         price: formatPrice(m.current_price),
         change: parseFloat((m.price_change_percentage_24h ?? 0).toFixed(2)),
-        sentiment: sent.sentiment,
-        confidence: sent.confidence,
       };
     });
   },
@@ -437,159 +203,75 @@ export const api = {
     return fetchRSSNews();
   },
 
-  async getRedditDiscussions(): Promise<RedditDiscussion[]> {
-    const cacheKey = 'reddit:top-discussions';
-    const cached = getCache<RedditDiscussion[]>(cacheKey);
-    if (cached) return cached;
-
-    const subs = 'CryptoCurrency+Bitcoin+ethereum+CryptoMarkets';
-    const url = REDDIT(`/r/${subs}/hot.json?limit=35&raw_json=1`);
-
-    logger.debug('api', 'GET Reddit hot discussions');
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`Reddit HTTP ${res.status}`);
-
-    const json = await res.json();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const discussions: RedditDiscussion[] = (json.data?.children ?? [])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((c: any) => c.data.score >= 30 && !c.data.stickied)
-      .slice(0, 15)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((c: any) => {
-        const d = c.data;
-        const { sentiment } = analyzeSentiment([d.title + ' ' + (d.selftext || '')]);
-        return {
-          id: d.id,
-          title: d.title,
-          subreddit: `r/${d.subreddit}`,
-          upvotes: d.score,
-          numComments: d.num_comments,
-          timeAgo: timeAgo(d.created_utc),
-          permalink: `https://reddit.com${d.permalink}`,
-          sentiment,
-        };
-      });
-
-    setCache(cacheKey, discussions, TTL.reddit);
-    return discussions;
-  },
-
   async getWatchlistCoins(tickers: string[]): Promise<Coin[]> {
     if (tickers.length === 0) return [];
     const geckoIds = tickers
       .map(t => resolveCoin(t)?.geckoId)
       .filter((id): id is string => !!id);
-
     if (geckoIds.length === 0) return [];
-
     const markets = await fetchGeckoMarkets(geckoIds);
-
-    const sentiments = await Promise.allSettled(
-      geckoIds.map(async (id) => {
-        const info = resolveCoin(id)!;
-        const posts = await fetchRedditPosts(id, info.subreddits.slice(0, 2));
-        return { id, ...analyzeSentiment(posts.map(p => p.title)) };
-      })
-    );
-
-    const sentMap = new Map<string, { sentiment: Sentiment; confidence: number }>();
-    sentiments.forEach((r, i) => {
-      if (r.status === 'fulfilled') {
-        sentMap.set(geckoIds[i], { sentiment: r.value.sentiment, confidence: r.value.confidence });
-      } else {
-        sentMap.set(geckoIds[i], { sentiment: 'Mixed', confidence: 50 });
-      }
-    });
-
     return markets.map((m) => {
       const info = resolveCoin(m.id);
-      const sent = sentMap.get(m.id) ?? { sentiment: 'Mixed' as Sentiment, confidence: 50 };
       return {
         ticker: info?.ticker ?? m.symbol.toUpperCase(),
         name: m.name,
         price: formatPrice(m.current_price),
         change: parseFloat((m.price_change_percentage_24h ?? 0).toFixed(2)),
-        sentiment: sent.sentiment,
-        confidence: sent.confidence,
       };
     });
   },
 
-  async getCoinSentimentNoAI(query: string): Promise<CoinSentimentResult> {
+  async getCoinDetail(query: string): Promise<CoinMarketDetail> {
     const info = resolveCoin(query);
     const geckoId = info?.geckoId ?? query.toLowerCase();
 
-    let price = 'N/A';
-    let change = 0;
-    let name = info?.name ?? (query.charAt(0).toUpperCase() + query.slice(1));
+    const markets = await fetchGeckoMarkets([geckoId]);
+    const m = markets[0];
+    if (!m) throw new Error(`Coin not found: ${query}`);
 
-    try {
-      const markets = await fetchGeckoMarkets([geckoId]);
-      if (markets[0]) {
-        price  = formatPrice(markets[0].current_price);
-        change = parseFloat((markets[0].price_change_percentage_24h ?? 0).toFixed(2));
-        name   = markets[0].name;
-      }
-    } catch (e) {
-      logger.warn('api', 'CoinGecko price failed', { error: String(e) });
-    }
+    const athDate = m.ath_date
+      ? new Date(m.ath_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      : '—';
 
-    const subreddits = info?.subreddits ?? ['CryptoCurrency', 'wallstreetbets', 'investing'];
-    let rawPosts: RedditRaw[] = [];
-
-    try {
-      rawPosts = await fetchRedditPosts(query, subreddits);
-    } catch (e) {
-      logger.warn('api', 'Reddit fetch failed', { error: String(e) });
-    }
-
-    const texts = rawPosts.map(p => p.title + ' ' + p.selftext);
-    const overallSentiment = analyzeSentiment(texts);
-
-    const scoredPosts: Post[] = rawPosts
-      .slice(0, 15)
-      .map((raw, i) => {
-        const { sentiment } = analyzeSentiment([raw.title + ' ' + raw.selftext]);
-        return toPost(raw, sentiment, i + 1);
-      });
-
-    const topPost = [...scoredPosts].sort((a, b) => b.upvotes - a.upvotes)[0];
+    const ticker = info?.ticker ?? m.symbol.toUpperCase();
+    const supplyStr = m.circulating_supply
+      ? `${(m.circulating_supply / 1e6).toFixed(2)}M ${ticker}`
+      : '—';
 
     return {
-      name,
-      ticker: info?.ticker ?? query.toUpperCase(),
-      sentiment: overallSentiment.sentiment,
-      confidence: overallSentiment.confidence,
-      price,
-      change,
-      keywords: overallSentiment.keywords,
-      subredditBreakdown: buildSubredditBreakdown(rawPosts),
-      sentimentHistory: buildSentimentHistory(rawPosts),
-      posts: scoredPosts,
-      topPost,
-      aiSentiment: undefined,
+      geckoId: m.id,
+      ticker,
+      name: m.name,
+      price: formatPrice(m.current_price),
+      change: parseFloat((m.price_change_percentage_24h ?? 0).toFixed(2)),
+      marketCap: formatLargeNumber(m.market_cap),
+      volume24h: formatLargeNumber(m.total_volume),
+      circulatingSupply: supplyStr,
+      allTimeHigh: formatPrice(m.ath),
+      athDate,
+      rank: m.market_cap_rank ?? 0,
     };
   },
 
-  async getCoinSentiment(query: string): Promise<CoinSentimentResult> {
-    const base = await api.getCoinSentimentNoAI(query);
+  async getCoinPriceHistory(geckoId: string): Promise<PricePoint[]> {
+    const cacheKey = `price-history:${geckoId}`;
+    const cached = getCache<PricePoint[]>(cacheKey);
+    if (cached) return cached;
 
-    let aiSentiment: AISentiment | undefined;
-    try {
-      const allNews = await fetchRSSNews();
-      const coinNews = filterNewsByCoin(allNews, base.name, base.ticker);
-      const articles = coinNews.slice(0, 5).map(n => ({
-        title: n.title,
-        source: n.source,
-        url: n.url,
-      }));
-      const result = await fetchAISentiment(base.name, base.ticker, articles);
-      if (result) aiSentiment = result;
-    } catch (e) {
-      logger.warn('api', 'AI sentiment failed', { error: String(e) });
-    }
+    const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=7&interval=daily`;
+    logger.debug('api', `GET price history for ${geckoId}`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`CoinGecko price history HTTP ${res.status}`);
 
-    return { ...base, aiSentiment };
+    const data: { prices: [number, number][] } = await res.json();
+    const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    const points: PricePoint[] = data.prices.map(([ts, price]) => ({
+      day: DAY_LABELS[new Date(ts).getDay()],
+      price: parseFloat(price.toFixed(price >= 1 ? 2 : 6)),
+    }));
+
+    setCache(cacheKey, points, TTL.prices);
+    return points;
   },
 };

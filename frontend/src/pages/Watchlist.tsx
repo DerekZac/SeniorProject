@@ -67,8 +67,6 @@ export default function Watchlist() {
             <span className="section-label flex-1">Name</span>
             <span className="section-label hidden sm:block">Price</span>
             <span className="section-label" style={{ width: '4rem', textAlign: 'right' }}>24h</span>
-            <span className="section-label hidden md:block" style={{ width: '5.5rem' }}>Signal</span>
-            <span className="section-label hidden lg:block" style={{ width: '2.5rem', textAlign: 'right' }}>Conf.</span>
             <span style={{ width: '1.5rem', flexShrink: 0 }} />
           </div>
 

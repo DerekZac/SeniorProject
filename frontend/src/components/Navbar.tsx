@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, Star, BarChart2, Newspaper, User, LogIn, LogOut, Menu, X } from 'lucide-react';
+import { TrendingUp, BookOpen, Scale, Building2, Calculator, Newspaper, Star, User, LogIn, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_LINKS = [
-  { path: '/',          label: 'Home',      icon: TrendingUp },
-  { path: '/watchlist', label: 'Watchlist', icon: Star },
-  { path: '/compare',   label: 'Compare',   icon: BarChart2 },
-  { path: '/news',      label: 'News',      icon: Newspaper },
+  { path: '/',             label: 'Home',        icon: TrendingUp },
+  { path: '/learn',        label: 'Learn',       icon: BookOpen },
+  { path: '/regulations',  label: 'Regulations', icon: Scale },
+  { path: '/exchanges',    label: 'Exchanges',   icon: Building2 },
+  { path: '/tools',        label: 'Tools',       icon: Calculator },
+  { path: '/news',         label: 'News',        icon: Newspaper },
+  { path: '/watchlist',    label: 'Watchlist',   icon: Star },
 ];
 
 function isActive(pathname: string, path: string) {

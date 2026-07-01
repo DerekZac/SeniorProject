@@ -1,4 +1,4 @@
-import { Star, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -6,20 +6,13 @@ interface Props {
   name: string;
   price: string;
   change: number;
-  sentiment: 'Bullish' | 'Bearish' | 'Mixed';
-  confidence: number;
   isWatchlisted?: boolean;
   onToggleWatchlist?: () => void;
 }
 
-const SENT_COLOR = { Bullish: '#00E676', Bearish: '#FF3355', Mixed: '#FFB020' } as const;
-const SENT_ICON  = { Bullish: TrendingUp, Bearish: TrendingDown, Mixed: Minus } as const;
-
-export default function CoinCard({ ticker, name, price, change, sentiment, confidence, isWatchlisted, onToggleWatchlist }: Props) {
+export default function CoinCard({ ticker, name, price, change, isWatchlisted, onToggleWatchlist }: Props) {
   const navigate = useNavigate();
   const up       = change >= 0;
-  const color    = SENT_COLOR[sentiment];
-  const Icon     = SENT_ICON[sentiment];
 
   return (
     <div
@@ -41,15 +34,6 @@ export default function CoinCard({ ticker, name, price, change, sentiment, confi
 
       <span className="num" style={{ width: '4rem', textAlign: 'right', fontSize: '0.8125rem', color: up ? '#00E676' : '#FF3355', flexShrink: 0 }}>
         {up ? '+' : ''}{change}%
-      </span>
-
-      <span className="hidden md:inline-flex items-center gap-1" style={{ width: '5.5rem', fontSize: '0.75rem', fontWeight: 600, color, flexShrink: 0 }}>
-        <Icon size={12} strokeWidth={2.5} />
-        {sentiment}
-      </span>
-
-      <span className="num hidden lg:inline section-label" style={{ width: '2.5rem', textAlign: 'right', flexShrink: 0 }}>
-        {confidence}%
       </span>
 
       <button
