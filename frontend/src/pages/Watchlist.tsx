@@ -25,7 +25,7 @@ export default function Watchlist() {
       <div style={{ marginBottom: '3.5rem' }}>
         <p className="section-label" style={{ marginBottom: '0.875rem' }}>Portfolio Tracker</p>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.25rem' }}>
-          <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: '#FFFFFF', lineHeight: 1 }}>
+          <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-strong)', lineHeight: 1 }}>
             My Watchlist
           </h1>
           <span className="section-label">
@@ -45,11 +45,11 @@ export default function Watchlist() {
 
       {/* Empty state */}
       {!loading && watchlist.length === 0 && (
-        <div style={{ padding: '5rem 0', borderTop: '1px solid #21213A', borderBottom: '1px solid #21213A' }}>
-          <p style={{ fontSize: '0.9375rem', color: '#5A5A7A', lineHeight: 1.6 }}>
+        <div style={{ padding: '5rem 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+          <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
             Your watchlist is empty.
           </p>
-          <p style={{ fontSize: '0.875rem', color: '#3A3A5A', marginTop: '0.5rem', paddingLeft: '1rem', borderLeft: '2px solid #21213A' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--border-hover)', marginTop: '0.5rem', paddingLeft: '1rem', borderLeft: '2px solid var(--border)' }}>
             Search for any coin and press the star icon to start tracking it here.
           </p>
         </div>
@@ -61,7 +61,7 @@ export default function Watchlist() {
           {/* Column headers */}
           <div
             className="hidden md:flex items-center gap-3 md:gap-4"
-            style={{ padding: '0 0 0.625rem', borderBottom: '1px solid #21213A' }}
+            style={{ padding: '0 0 0.625rem', borderBottom: '1px solid var(--border)' }}
           >
             <span className="section-label" style={{ width: '3.5rem', flexShrink: 0 }}>Ticker</span>
             <span className="section-label flex-1">Name</span>

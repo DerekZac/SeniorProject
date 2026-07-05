@@ -59,7 +59,7 @@ export default function SearchBar({ large = false }: Props) {
           <Search
             size={large ? 20 : 16}
             className="absolute left-4 pointer-events-none"
-            style={{ color: focused ? '#F7931A' : '#5A5A7A' }}
+            style={{ color: focused ? 'var(--signin-color)' : 'var(--text-muted)' }}
           />
           <input
             ref={inputRef}
@@ -70,9 +70,9 @@ export default function SearchBar({ large = false }: Props) {
             placeholder="Search any cryptocurrency…"
             className={`w-full rounded-xl outline-none transition-all ${large ? 'py-4 text-base pl-12 pr-12' : 'py-2.5 text-sm pl-10 pr-10'}`}
             style={{
-              background: '#16162A',
-              border: `1px solid ${focused ? 'rgba(247,147,26,0.5)' : '#21213A'}`,
-              color: '#ffffff',
+              background: 'var(--bg-surface)',
+              border: `1px solid ${focused ? 'var(--signin-border)' : 'var(--border)'}`,
+              color: 'var(--text-strong)',
               boxShadow: focused ? '0 0 0 3px rgba(247,147,26,0.08)' : 'none',
             }}
           />
@@ -80,7 +80,8 @@ export default function SearchBar({ large = false }: Props) {
             <button
               type="button"
               onClick={() => { setQuery(''); inputRef.current?.focus(); }}
-              className="absolute right-4 text-[#5A5A7A] hover:text-white transition-colors"
+              className="absolute right-4 transition-colors"
+              style={{ color: 'var(--text-muted)' }}
             >
               <X size={15} />
             </button>
@@ -91,36 +92,36 @@ export default function SearchBar({ large = false }: Props) {
       {showDropdown && (
         <div
           className="absolute left-0 right-0 top-full mt-2 rounded-xl overflow-hidden z-50 animate-fade-up"
-          style={{ background: '#16162A', border: '1px solid #21213A', boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}
+          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: '0 8px 40px rgba(0,0,0,0.24)' }}
         >
           {!query.trim() && recentItems.length > 0 && (
             <>
-              <div className="px-4 pt-3 pb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: '#5A5A7A' }}>
+              <div className="px-4 pt-3 pb-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                 Recent searches
               </div>
               {recentItems.map(term => (
                 <button
                   key={term}
                   onMouseDown={() => go(term)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-[#21213A] transition-colors"
-                  style={{ color: '#ffffff' }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-[var(--border)]"
+                  style={{ color: 'var(--text-strong)' }}
                 >
-                  <Clock size={13} style={{ color: '#5A5A7A' }} />
+                  <Clock size={13} style={{ color: 'var(--text-muted)' }} />
                   {term}
                 </button>
               ))}
-              <div className="border-t border-[#21213A] mt-1 mb-1" />
-              <div className="px-4 pt-1.5 pb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: '#5A5A7A' }}>
+              <div className="border-t mt-1 mb-1" style={{ borderColor: 'var(--border)' }} />
+              <div className="px-4 pt-1.5 pb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                 Popular coins
               </div>
               {SUGGESTIONS.slice(0, 5).map(s => (
                 <button
                   key={s}
                   onMouseDown={() => go(s)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-[#21213A] transition-colors"
-                  style={{ color: '#ffffff' }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-[var(--border)]"
+                  style={{ color: 'var(--text-strong)' }}
                 >
-                  <TrendingUp size={13} style={{ color: '#F7931A' }} />
+                  <TrendingUp size={13} style={{ color: 'var(--signin-color)' }} />
                   {s}
                 </button>
               ))}
@@ -131,10 +132,10 @@ export default function SearchBar({ large = false }: Props) {
             <button
               key={s}
               onMouseDown={() => go(s)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-[#21213A] transition-colors"
-              style={{ color: '#ffffff' }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-[var(--border)]"
+              style={{ color: 'var(--text-strong)' }}
             >
-              <Search size={13} style={{ color: '#5A5A7A' }} />
+              <Search size={13} style={{ color: 'var(--text-muted)' }} />
               {s}
             </button>
           ))}

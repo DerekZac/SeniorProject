@@ -7,7 +7,7 @@ function SectionRule({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.75rem' }}>
       <span className="section-label">{label}</span>
-      <div style={{ flex: 1, height: '1px', background: '#21213A' }} />
+      <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
     </div>
   );
 }
@@ -45,17 +45,17 @@ export default function News() {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '4rem' }}>
         <div>
           <p className="section-label" style={{ marginBottom: '0.875rem' }}>Crypto Coverage</p>
-          <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 700, letterSpacing: '-0.03em', color: '#FFFFFF', lineHeight: 1 }}>
+          <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text-strong)', lineHeight: 1 }}>
             Latest News
           </h1>
-          <p style={{ fontSize: '0.875rem', color: '#5A5A7A', marginTop: '0.75rem' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
             Headlines from CoinDesk, CoinTelegraph, Decrypt, Blockworks, and more.
           </p>
         </div>
         <button
           onClick={loadNews}
           disabled={newsLoading}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: '#5A5A7A', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
           className="transition-colors duration-150 hover:text-[#E8E8F0]"
           title="Refresh"
         >
@@ -71,7 +71,7 @@ export default function News() {
         {!newsLoading && !newsError && news.length > 0 && (
           <div
             className="hidden sm:flex items-center gap-4 md:gap-6"
-            style={{ padding: '0 0 0.625rem', borderBottom: '1px solid #21213A' }}
+            style={{ padding: '0 0 0.625rem', borderBottom: '1px solid var(--border)' }}
           >
             <span className="section-label" style={{ width: '7rem', flexShrink: 0 }}>Source</span>
             <span className="section-label flex-1">Headline</span>
@@ -83,11 +83,11 @@ export default function News() {
         {newsLoading && <SkeletonRows count={10} />}
 
         {newsError && !newsLoading && (
-          <div style={{ padding: '3rem 0', borderTop: '1px solid #21213A' }}>
-            <p style={{ fontSize: '0.9375rem', color: '#5A5A7A' }}>Could not load news articles.</p>
+          <div style={{ padding: '3rem 0', borderTop: '1px solid var(--border)' }}>
+            <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)' }}>Could not load news articles.</p>
             <button
               onClick={loadNews}
-              style={{ marginTop: '1rem', background: 'none', border: '1px solid #21213A', color: '#E8E8F0', borderRadius: '6px', padding: '0.5rem 1.25rem', fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ marginTop: '1rem', background: 'none', border: '1px solid var(--border)', color: 'var(--text-strong)', borderRadius: '6px', padding: '0.5rem 1.25rem', fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Try again
             </button>
@@ -95,8 +95,8 @@ export default function News() {
         )}
 
         {!newsLoading && !newsError && news.length === 0 && (
-          <div style={{ padding: '3rem 0', borderTop: '1px solid #21213A' }}>
-            <p style={{ fontSize: '0.9375rem', color: '#5A5A7A' }}>No articles available right now.</p>
+          <div style={{ padding: '3rem 0', borderTop: '1px solid var(--border)' }}>
+            <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)' }}>No articles available right now.</p>
           </div>
         )}
 

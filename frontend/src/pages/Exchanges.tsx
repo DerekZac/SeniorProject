@@ -23,10 +23,10 @@ export default function Exchanges() {
       {/* Page header */}
       <div style={{ marginBottom: '3.5rem' }}>
         <p className="section-label" style={{ marginBottom: '0.875rem' }}>Where to Buy Crypto</p>
-        <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: '#FFFFFF', lineHeight: 1, marginBottom: '1rem' }}>
+        <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-strong)', lineHeight: 1, marginBottom: '1rem' }}>
           Exchange Platforms
         </h1>
-        <p style={{ fontSize: '1rem', color: '#5A5A7A', maxWidth: '52ch', lineHeight: 1.6 }}>
+        <p style={{ fontSize: '1rem', color: 'var(--text-muted)', maxWidth: '52ch', lineHeight: 1.6 }}>
           Compare the most trusted platforms to buy, sell, and trade cryptocurrency — from beginner-friendly apps to professional trading platforms.
         </p>
       </div>
@@ -46,8 +46,8 @@ export default function Exchanges() {
               fontFamily: 'inherit',
               transition: 'all 0.15s ease',
               background: activeFilter === tab.id ? '#F7931A' : 'transparent',
-              color:      activeFilter === tab.id ? '#FFFFFF' : '#5A5A7A',
-              border:     `1px solid ${activeFilter === tab.id ? '#F7931A' : '#21213A'}`,
+              color:      activeFilter === tab.id ? '#FFFFFF' : 'var(--text-muted)',
+              border:     `1px solid ${activeFilter === tab.id ? '#F7931A' : 'var(--border)'}`,
             }}
           >
             {tab.label}
@@ -60,7 +60,7 @@ export default function Exchanges() {
         {filtered.map(ex => (
           <div
             key={ex.id}
-            style={{ background: '#16162A', border: '1px solid #21213A', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
           >
             {/* Card header */}
             <div style={{ padding: '1.25rem 1.25rem 0' }}>
@@ -70,7 +70,7 @@ export default function Exchanges() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: 700, fontSize: '1rem', color: '#FFFFFF' }}>{ex.name}</span>
+                    <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-strong)' }}>{ex.name}</span>
                     {ex.tag && (
                       <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: '#F7931A', background: 'rgba(247,147,26,0.12)', border: '1px solid rgba(247,147,26,0.2)' }}>
                         {TAG_LABELS[ex.tag]}
@@ -83,18 +83,18 @@ export default function Exchanges() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs font-medium transition-colors hover:text-[#F7931A]"
-                  style={{ color: '#5A5A7A', textDecoration: 'none', flexShrink: 0 }}
+                  style={{ color: 'var(--text-muted)', textDecoration: 'none', flexShrink: 0 }}
                 >
                   Visit <ArrowUpRight size={11} />
                 </a>
               </div>
-              <p style={{ fontSize: '0.8125rem', color: '#5A5A7A', marginBottom: '1rem', fontStyle: 'italic' }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1rem', fontStyle: 'italic' }}>
                 Best for: {ex.bestFor}
               </p>
             </div>
 
             {/* Stats grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #21213A', borderBottom: '1px solid #21213A' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
               {[
                 { label: 'Founded',    value: String(ex.founded) },
                 { label: 'Trust Score', value: `${ex.trustScore}/10` },
@@ -105,12 +105,12 @@ export default function Exchanges() {
                   key={stat.label}
                   style={{
                     padding: '0.75rem 1.25rem',
-                    borderRight: i % 2 === 0 ? '1px solid #21213A' : 'none',
-                    borderBottom: i < 2 ? '1px solid #21213A' : 'none',
+                    borderRight: i % 2 === 0 ? '1px solid var(--border)' : 'none',
+                    borderBottom: i < 2 ? '1px solid var(--border)' : 'none',
                   }}
                 >
-                  <div className="text-xs" style={{ color: '#5A5A7A', marginBottom: '0.25rem' }}>{stat.label}</div>
-                  <div className="text-sm font-semibold text-white">{stat.value}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>{stat.label}</div>
+                  <div className="text-sm font-semibold text-strong">{stat.value}</div>
                 </div>
               ))}
             </div>
@@ -120,7 +120,7 @@ export default function Exchanges() {
               <p className="section-label" style={{ marginBottom: '0.625rem' }}>Key Features</p>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                 {ex.features.slice(0, 4).map((f, i) => (
-                  <li key={i} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8125rem', color: '#A0A0B8', lineHeight: 1.45 }}>
+                  <li key={i} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--text)', lineHeight: 1.45 }}>
                     <span style={{ color: '#00E676', flexShrink: 0, marginTop: '1px' }}>✓</span>
                     {f}
                   </li>
@@ -129,17 +129,17 @@ export default function Exchanges() {
             </div>
 
             {/* Footer */}
-            <div style={{ padding: '0.875rem 1.25rem', borderTop: '1px solid #21213A', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+            <div style={{ padding: '0.875rem 1.25rem', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {ex.kycRequired
                   ? <CheckCircle size={13} style={{ color: '#FFB020' }} />
                   : <XCircle size={13} style={{ color: '#00E676' }} />
                 }
-                <span className="text-xs" style={{ color: '#5A5A7A' }}>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {ex.kycRequired ? 'KYC required' : 'No KYC required'}
                 </span>
               </div>
-              <span className="text-xs line-clamp-1" style={{ color: '#5A5A7A', textAlign: 'right', minWidth: 0 }}>
+              <span className="text-xs line-clamp-1" style={{ color: 'var(--text-muted)', textAlign: 'right', minWidth: 0 }}>
                 {ex.supported[0]}
               </span>
             </div>
@@ -148,14 +148,14 @@ export default function Exchanges() {
       </div>
 
       {filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '5rem 0', color: '#5A5A7A' }}>
+        <div style={{ textAlign: 'center', padding: '5rem 0', color: 'var(--text-muted)' }}>
           <p>No exchanges match this filter.</p>
         </div>
       )}
 
-      <div style={{ marginTop: '2.5rem', padding: '1rem 1.25rem', background: 'rgba(33,33,58,0.5)', border: '1px solid #21213A', borderRadius: '8px' }}>
-        <p style={{ fontSize: '0.8125rem', color: '#5A5A7A', lineHeight: 1.55, margin: 0 }}>
-          <strong style={{ color: '#A0A0B8' }}>Disclaimer:</strong> Exchange listings are for informational purposes only. Fee structures change frequently — verify current rates on each platform. Crypton is not affiliated with any exchange. Always research thoroughly before depositing funds.
+      <div style={{ marginTop: '2.5rem', padding: '1rem 1.25rem', background: 'rgba(33,33,58,0.5)', border: '1px solid var(--border)', borderRadius: '8px' }}>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.55, margin: 0 }}>
+          <strong style={{ color: 'var(--text-strong)' }}>Disclaimer:</strong> Exchange listings are for informational purposes only. Fee structures change frequently — verify current rates on each platform. Crypton is not affiliated with any exchange. Always research thoroughly before depositing funds.
         </p>
       </div>
     </div>

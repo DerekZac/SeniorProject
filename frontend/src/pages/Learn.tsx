@@ -13,7 +13,7 @@ function GuideCard({ guide, isOpen, onToggle }: { guide: GuideSection; isOpen: b
   return (
     <div
       id={guide.id}
-      style={{ background: '#16162A', border: `1px solid ${isOpen ? 'rgba(247,147,26,0.3)' : '#21213A'}`, borderRadius: '12px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}
+      style={{ background: 'var(--bg-surface)', border: `1px solid ${isOpen ? 'var(--signin-border)' : 'var(--border)'}`, borderRadius: '12px', overflow: 'hidden', transition: 'border-color 0.2s ease' }}
     >
       <button
         onClick={onToggle}
@@ -22,33 +22,33 @@ function GuideCard({ guide, isOpen, onToggle }: { guide: GuideSection; isOpen: b
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-            <Icon size={16} style={{ color: '#F7931A', flexShrink: 0 }} />
-            <span className="section-label" style={{ color: '#F7931A' }}>{guide.category.charAt(0).toUpperCase() + guide.category.slice(1)}</span>
-            <span className="section-label" style={{ color: '#3A3A5A' }}>·</span>
+            <Icon size={16} style={{ color: 'var(--signin-color)', flexShrink: 0 }} />
+            <span className="section-label" style={{ color: 'var(--signin-color)' }}>{guide.category.charAt(0).toUpperCase() + guide.category.slice(1)}</span>
+            <span className="section-label" style={{ color: 'var(--border-hover)' }}>·</span>
             <span className="section-label">{guide.readTime}</span>
           </div>
           {isOpen
-            ? <ChevronUp size={16} style={{ color: '#5A5A7A', flexShrink: 0, marginTop: '2px' }} />
-            : <ChevronDown size={16} style={{ color: '#5A5A7A', flexShrink: 0, marginTop: '2px' }} />
+            ? <ChevronUp size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: '2px' }} />
+            : <ChevronDown size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: '2px' }} />
           }
         </div>
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#FFFFFF', lineHeight: 1.35, margin: 0 }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-strong)', lineHeight: 1.35, margin: 0 }}>
           {guide.title}
         </h3>
         {!isOpen && (
-          <p style={{ fontSize: '0.8125rem', color: '#5A5A7A', lineHeight: 1.55, margin: 0 }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.55, margin: 0 }}>
             {guide.summary}
           </p>
         )}
       </button>
 
       {isOpen && (
-        <div style={{ padding: '0 1.5rem 1.5rem', borderTop: '1px solid #21213A' }}>
-          <p style={{ fontSize: '0.875rem', color: '#5A5A7A', marginBottom: '1rem', marginTop: '1rem', lineHeight: 1.5 }}>
+        <div style={{ padding: '0 1.5rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem', marginTop: '1rem', lineHeight: 1.5 }}>
             {guide.summary}
           </p>
           {paragraphs.map((para, i) => (
-            <p key={i} style={{ fontSize: '0.9375rem', color: '#A0A0B8', lineHeight: 1.75, marginBottom: i < paragraphs.length - 1 ? '1rem' : 0 }}>
+            <p key={i} style={{ fontSize: '0.9375rem', color: 'var(--text)', lineHeight: 1.75, marginBottom: i < paragraphs.length - 1 ? '1rem' : 0 }}>
               {para}
             </p>
           ))}
@@ -74,10 +74,10 @@ export default function Learn() {
       {/* Page header */}
       <div style={{ marginBottom: '3.5rem' }}>
         <p className="section-label" style={{ marginBottom: '0.875rem' }}>Education Hub</p>
-        <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: '#FFFFFF', lineHeight: 1, marginBottom: '1rem' }}>
+        <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-strong)', lineHeight: 1, marginBottom: '1rem' }}>
           Learn Crypto
         </h1>
-        <p style={{ fontSize: '1rem', color: '#5A5A7A', maxWidth: '50ch', lineHeight: 1.6 }}>
+        <p style={{ fontSize: '1rem', color: 'var(--text-muted)', maxWidth: '50ch', lineHeight: 1.6 }}>
           Plain-English guides to understanding cryptocurrency, blockchain, DeFi, and how to stay safe in the crypto world.
         </p>
       </div>
@@ -97,8 +97,8 @@ export default function Learn() {
               fontFamily: 'inherit',
               transition: 'all 0.15s ease',
               background: activeCategory === cat.id ? '#F7931A' : 'transparent',
-              color:      activeCategory === cat.id ? '#FFFFFF' : '#5A5A7A',
-              border:     `1px solid ${activeCategory === cat.id ? '#F7931A' : '#21213A'}`,
+              color:      activeCategory === cat.id ? '#FFFFFF' : 'var(--text-muted)',
+              border:     `1px solid ${activeCategory === cat.id ? '#F7931A' : 'var(--border)'}`,
             }}
           >
             {cat.label}
@@ -119,7 +119,7 @@ export default function Learn() {
       </div>
 
       {filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '5rem 0', color: '#5A5A7A' }}>
+        <div style={{ textAlign: 'center', padding: '5rem 0', color: 'var(--text-muted)' }}>
           <BookOpen size={36} style={{ margin: '0 auto 1rem', opacity: 0.3 }} />
           <p>No guides in this category yet.</p>
         </div>

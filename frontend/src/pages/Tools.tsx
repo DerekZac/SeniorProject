@@ -22,19 +22,19 @@ const FIAT_RATES: Record<string, number> = {
 function InputRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-      <label style={{ fontSize: '0.8125rem', color: '#5A5A7A', fontWeight: 500 }}>{label}</label>
+      <label style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 500 }}>{label}</label>
       {children}
     </div>
   );
 }
 
 const inputStyle: React.CSSProperties = {
-  background: '#0F0F1A',
-  border: '1px solid #21213A',
+  background: 'var(--bg-surface)',
+  border: '1px solid var(--border)',
   borderRadius: '8px',
   padding: '0.625rem 0.875rem',
   fontSize: '0.9375rem',
-  color: '#FFFFFF',
+  color: 'var(--text-strong)',
   fontFamily: 'inherit',
   outline: 'none',
   width: '100%',
@@ -173,13 +173,13 @@ export default function Tools() {
       {/* Page header */}
       <div style={{ marginBottom: '3rem' }}>
         <p className="section-label" style={{ marginBottom: '0.875rem' }}>Crypto Tools</p>
-        <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: '#FFFFFF', lineHeight: 1 }}>
+        <h1 style={{ fontSize: 'clamp(1.75rem, 3vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-strong)', lineHeight: 1 }}>
           Tools & Calculators
         </h1>
       </div>
 
       {/* Tab selector */}
-      <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '2rem', background: '#0F0F1A', border: '1px solid #21213A', borderRadius: '10px', padding: '0.25rem' }}>
+      <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '2rem', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '0.25rem' }}>
         {([
           { id: 'dca',       label: 'DCA Calculator',  Icon: Calculator },
           { id: 'converter', label: 'Crypto Converter', Icon: ArrowLeftRight },
@@ -200,9 +200,9 @@ export default function Tools() {
               cursor: 'pointer',
               fontFamily: 'inherit',
               transition: 'all 0.15s ease',
-              background: tab === id ? '#16162A' : 'transparent',
-              color:      tab === id ? '#FFFFFF' : '#5A5A7A',
-              border:     `1px solid ${tab === id ? '#21213A' : 'transparent'}`,
+              background: tab === id ? 'var(--bg)' : 'transparent',
+              color:      tab === id ? 'var(--text-strong)' : 'var(--text-muted)',
+              border:     `1px solid ${tab === id ? 'var(--border)' : 'transparent'}`,
             }}
           >
             <Icon size={14} />
@@ -214,11 +214,11 @@ export default function Tools() {
       {/* ── DCA Calculator ─────────────────────────────────────── */}
       {tab === 'dca' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ background: '#16162A', border: '1px solid #21213A', borderRadius: '12px', padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#FFFFFF', marginBottom: '1.25rem' }}>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-strong)', marginBottom: '1.25rem' }}>
               Dollar-Cost Averaging Calculator
             </h2>
-            <p style={{ fontSize: '0.8125rem', color: '#5A5A7A', marginBottom: '1.5rem', lineHeight: 1.55 }}>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.55 }}>
               DCA means investing a fixed amount at regular intervals regardless of price. This calculator shows how much you would have invested over time.
             </p>
 
@@ -229,7 +229,7 @@ export default function Tools() {
                   onChange={e => setDcaCoin(e.target.value)}
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
-                  {CRYPTO_OPTIONS.map(t => <option key={t} value={t} style={{ background: '#0F0F1A' }}>{t}</option>)}
+                  {CRYPTO_OPTIONS.map(t => <option key={t} value={t} style={{ background: 'var(--bg-surface)' }}>{t}</option>)}
                 </select>
               </InputRow>
 
@@ -240,8 +240,8 @@ export default function Tools() {
                   onChange={e => setDcaAmount(e.target.value)}
                   min="1"
                   style={inputStyle}
-                  onFocus={e => (e.target.style.borderColor = 'rgba(247,147,26,0.5)')}
-                  onBlur={e  => (e.target.style.borderColor = '#21213A')}
+                  onFocus={e => (e.target.style.borderColor = 'var(--signin-border)')}
+                  onBlur={e  => (e.target.style.borderColor = 'var(--border)')}
                 />
               </InputRow>
 
@@ -251,9 +251,9 @@ export default function Tools() {
                   onChange={e => setDcaFreq(e.target.value as Frequency)}
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
-                  <option value="weekly"   style={{ background: '#0F0F1A' }}>Weekly</option>
-                  <option value="biweekly" style={{ background: '#0F0F1A' }}>Bi-weekly</option>
-                  <option value="monthly"  style={{ background: '#0F0F1A' }}>Monthly</option>
+                  <option value="weekly"   style={{ background: 'var(--bg-surface)' }}>Weekly</option>
+                  <option value="biweekly" style={{ background: 'var(--bg-surface)' }}>Bi-weekly</option>
+                  <option value="monthly"  style={{ background: 'var(--bg-surface)' }}>Monthly</option>
                 </select>
               </InputRow>
 
@@ -265,8 +265,8 @@ export default function Tools() {
                   min="1"
                   max="120"
                   style={inputStyle}
-                  onFocus={e => (e.target.style.borderColor = 'rgba(247,147,26,0.5)')}
-                  onBlur={e  => (e.target.style.borderColor = '#21213A')}
+                  onFocus={e => (e.target.style.borderColor = 'var(--signin-border)')}
+                  onBlur={e  => (e.target.style.borderColor = 'var(--border)')}
                 />
               </InputRow>
             </div>
@@ -284,20 +284,20 @@ export default function Tools() {
           {dcaRows.length > 0 && dcaPrice && (
             <>
               {/* Summary */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', background: '#21213A', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
                 {[
                   { label: 'Total Invested',     value: `$${totalInvested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
                   { label: `${dcaCoin} Accumulated`, value: coinsAccumulated.toFixed(6) },
                   { label: 'Current Value (est.)', value: `$${currentValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
                 ].map(s => (
-                  <div key={s.label} style={{ background: '#16162A', padding: '1.25rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#FFFFFF', marginBottom: '0.375rem' }}>{s.value}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#5A5A7A' }}>{s.label}</div>
+                  <div key={s.label} style={{ background: 'var(--bg-surface)', padding: '1.25rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-strong)', marginBottom: '0.375rem' }}>{s.value}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.label}</div>
                   </div>
                 ))}
               </div>
 
-              <p style={{ fontSize: '0.75rem', color: '#5A5A7A', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                 * Based on current price of {dcaCoin}: ${dcaPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. This is a simplified estimate — actual returns depend on price at each purchase date. Not financial advice.
               </p>
             </>
@@ -307,11 +307,11 @@ export default function Tools() {
 
       {/* ── Converter ──────────────────────────────────────────── */}
       {tab === 'converter' && (
-        <div style={{ background: '#16162A', border: '1px solid #21213A', borderRadius: '12px', padding: '1.5rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#FFFFFF', marginBottom: '0.5rem' }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-strong)', marginBottom: '0.5rem' }}>
             Crypto / Fiat Converter
           </h2>
-          <p style={{ fontSize: '0.8125rem', color: '#5A5A7A', marginBottom: '1.5rem', lineHeight: 1.55 }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.55 }}>
             Convert between any cryptocurrency and fiat currency using live market prices.
           </p>
 
@@ -335,21 +335,21 @@ export default function Tools() {
                   onChange={e => { setConvFrom(e.target.value); setConvResult(null); }}
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
-                  <optgroup label="Crypto" style={{ background: '#0F0F1A' }}>
-                    {CRYPTO_OPTIONS.map(t => <option key={t} value={t} style={{ background: '#0F0F1A' }}>{t}</option>)}
+                  <optgroup label="Crypto" style={{ background: 'var(--bg-surface)' }}>
+                    {CRYPTO_OPTIONS.map(t => <option key={t} value={t} style={{ background: 'var(--bg-surface)' }}>{t}</option>)}
                   </optgroup>
-                  <optgroup label="Fiat" style={{ background: '#0F0F1A' }}>
-                    {FIAT_CURRENCIES.map(c => <option key={c} value={c} style={{ background: '#0F0F1A' }}>{c}</option>)}
+                  <optgroup label="Fiat" style={{ background: 'var(--bg-surface)' }}>
+                    {FIAT_CURRENCIES.map(c => <option key={c} value={c} style={{ background: 'var(--bg-surface)' }}>{c}</option>)}
                   </optgroup>
                 </select>
               </InputRow>
 
               <button
                 onClick={swap}
-                style={{ background: 'transparent', border: '1px solid #21213A', borderRadius: '8px', padding: '0.625rem', cursor: 'pointer', color: '#5A5A7A', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.15s ease, border-color 0.15s ease' }}
+                style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.625rem', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.15s ease, border-color 0.15s ease' }}
                 title="Swap currencies"
-                onMouseEnter={e => { (e.currentTarget.style.color = '#F7931A'); (e.currentTarget.style.borderColor = 'rgba(247,147,26,0.35)'); }}
-                onMouseLeave={e => { (e.currentTarget.style.color = '#5A5A7A'); (e.currentTarget.style.borderColor = '#21213A'); }}
+                onMouseEnter={e => { (e.currentTarget.style.color = '#F7931A'); (e.currentTarget.style.borderColor = 'var(--signin-border)'); }}
+                onMouseLeave={e => { (e.currentTarget.style.color = 'var(--text-muted)'); (e.currentTarget.style.borderColor = 'var(--border)'); }}
               >
                 <ArrowLeftRight size={16} />
               </button>
@@ -360,11 +360,11 @@ export default function Tools() {
                   onChange={e => { setConvTo(e.target.value); setConvResult(null); }}
                   style={{ ...inputStyle, cursor: 'pointer' }}
                 >
-                  <optgroup label="Crypto" style={{ background: '#0F0F1A' }}>
-                    {CRYPTO_OPTIONS.map(t => <option key={t} value={t} style={{ background: '#0F0F1A' }}>{t}</option>)}
+                  <optgroup label="Crypto" style={{ background: 'var(--bg-surface)' }}>
+                    {CRYPTO_OPTIONS.map(t => <option key={t} value={t} style={{ background: 'var(--bg-surface)' }}>{t}</option>)}
                   </optgroup>
-                  <optgroup label="Fiat" style={{ background: '#0F0F1A' }}>
-                    {FIAT_CURRENCIES.map(c => <option key={c} value={c} style={{ background: '#0F0F1A' }}>{c}</option>)}
+                  <optgroup label="Fiat" style={{ background: 'var(--bg-surface)' }}>
+                    {FIAT_CURRENCIES.map(c => <option key={c} value={c} style={{ background: 'var(--bg-surface)' }}>{c}</option>)}
                   </optgroup>
                 </select>
               </InputRow>
@@ -381,14 +381,14 @@ export default function Tools() {
 
             {convResult && (
               <div style={{ padding: '1.25rem', background: 'rgba(247,147,26,0.07)', border: '1px solid rgba(247,147,26,0.25)', borderRadius: '10px', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.8125rem', color: '#5A5A7A', marginBottom: '0.375rem' }}>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '0.375rem' }}>
                   {convAmount} {convFrom} =
                 </div>
                 <div style={{ fontSize: '1.625rem', fontWeight: 800, color: '#F7931A', letterSpacing: '-0.02em' }}>
                   {convResult}
                 </div>
                 {convPrice && (
-                  <div style={{ fontSize: '0.75rem', color: '#5A5A7A', marginTop: '0.5rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                     Live price: ${convPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
                   </div>
                 )}
@@ -396,7 +396,7 @@ export default function Tools() {
             )}
           </div>
 
-          <p style={{ fontSize: '0.75rem', color: '#5A5A7A', marginTop: '1.25rem', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1.25rem', lineHeight: 1.5 }}>
             * Fiat rates are approximate. Crypto prices are fetched live from CoinGecko. Not financial advice.
           </p>
         </div>

@@ -16,24 +16,21 @@ export default function CoinCard({ ticker, name, price, change, isWatchlisted, o
 
   return (
     <div
-      className="data-row group flex items-center gap-3 md:gap-4"
-      style={{ padding: '0.9375rem 0', borderBottom: '1px solid #21213A', cursor: 'pointer' }}
+      className="data-row group flex items-center gap-3 md:gap-4 row-padding row-border clickable"
       onClick={() => navigate(`/results/${ticker.toLowerCase()}`)}
     >
-      <span className="row-title num" style={{ width: '3.5rem', fontWeight: 700, fontSize: '0.875rem', color: '#FFFFFF', flexShrink: 0, transition: 'color 0.15s ease' }}>
+      <span className="row-title num">
         {ticker}
       </span>
-
-      <span className="flex-1 truncate" style={{ fontSize: '0.8125rem', color: '#5A5A7A', minWidth: 0 }}>
+      <span className="flex-1 truncate text-sm text-muted" style={{ minWidth: 0 }}>
         {name}
       </span>
-
-      <span className="num hidden sm:inline" style={{ fontSize: '0.875rem', color: '#E8E8F0', flexShrink: 0 }}>
+      <span className="num hidden sm:inline text-sm text-strong" style={{ flexShrink: 0 }}>
         {price}
       </span>
 
-      <span className="num" style={{ width: '4rem', textAlign: 'right', fontSize: '0.8125rem', color: up ? '#00E676' : '#FF3355', flexShrink: 0 }}>
-        {up ? '+' : ''}{change}%
+      <span className="num text-right text-sm" style={{ width: '4rem', flexShrink: 0 }}>
+        <span className={up ? 'text-up' : 'text-down'}>{up ? '+' : ''}{change}%</span>
       </span>
 
       <button

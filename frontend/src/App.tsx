@@ -17,13 +17,16 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Profile from "./pages/Profile";
+import { useTheme } from "./lib/useTheme";
 
 export default function App() {
+  useTheme();
+
   return (
     <AuthProvider>
       <AppProvider>
         <Router basename={import.meta.env.BASE_URL}>
-          <div className="min-h-screen bg-[#0D0F14] text-white">
+          <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
             <Navbar />
             <Routes>
               {/* Public routes */}
