@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { getSession } from '../lib/auth';
+import { FALLBACK_RATES, type CurrencyRates, type DisplayCurrency, loadCurrencyRates } from '../lib/displayCurrency';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const USE_BACKEND = API_URL !== '';
@@ -11,6 +12,9 @@ interface AppContextValue {
   searchHistory: string[];
   addToSearchHistory: (coin: string) => void;
   clearSearchHistory: () => void;
+  displayCurrency: DisplayCurrency;
+  setDisplayCurrency: (currency: DisplayCurrency) => void;
+  currencyRates: CurrencyRates;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -60,6 +64,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [searchHistory, setSearchHistory] = useState<string[]>(() =>
     readStorage<string[]>('crypton_search_history', [])
   );
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>(
+    () => (localStorage.getItem('crypton_display_currency') as DisplayCurrency) ?? 'USD'
+  );
+  const [currencyRates, setCurrencyRates] = useState<CurrencyRates>(FALLBACK_RATES);
 
   // On mount, load watchlist from backend if logged in
   useEffect(() => {
@@ -82,6 +90,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('crypton_search_history', JSON.stringify(searchHistory));
   }, [searchHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('crypton_display_currency', displayCurrency);
+  }, [displayCurrency]);
+
+  useEffect(() => {
+    loadCurrencyRates().then(setCurrencyRates);
+  }, []);
 
   const toggleWatchlist = (ticker: string) => {
     setWatchlist(prev => {
@@ -111,7 +127,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider
-      value={{ watchlist, toggleWatchlist, isWatchlisted, searchHistory, addToSearchHistory, clearSearchHistory }}
+      value={{
+        watchlist,
+        toggleWatchlist,
+        isWatchlisted,
+        searchHistory,
+        addToSearchHistory,
+        clearSearchHistory,
+        displayCurrency,
+        setDisplayCurrency,
+        currencyRates,
+      }}
     >
       {children}
     </AppContext.Provider>

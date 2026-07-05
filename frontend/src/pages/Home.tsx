@@ -6,6 +6,8 @@ import TickerStrip from '../components/TickerStrip';
 import { api, type Coin, type NewsItem } from '../lib/api';
 import { GUIDES } from '../lib/learnData';
 import { EXCHANGES } from '../lib/exchangeData';
+import { useApp } from '../context/AppContext';
+import { formatUsdToDisplay } from '../lib/displayCurrency';
 
 function SectionRule({ label, action }: { label: string; action?: React.ReactNode }) {
   return (
@@ -19,7 +21,9 @@ function SectionRule({ label, action }: { label: string; action?: React.ReactNod
 
 function CoinRow({ coin }: { coin: Coin }) {
   const navigate = useNavigate();
+  const { displayCurrency, currencyRates } = useApp();
   const up       = coin.change >= 0;
+  const price    = formatUsdToDisplay(coin.priceUsd, displayCurrency, currencyRates);
 
   return (
     <div
@@ -37,7 +41,7 @@ function CoinRow({ coin }: { coin: Coin }) {
         {coin.name}
       </span>
       <span className="num" style={{ fontSize: '0.875rem', color: 'var(--text-strong)', flexShrink: 0 }}>
-        {coin.price}
+        {price}
       </span>
       <span
         className="num"

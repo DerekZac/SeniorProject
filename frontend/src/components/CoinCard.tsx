@@ -1,18 +1,23 @@
 import { Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
+import { formatUsdToDisplay } from '../lib/displayCurrency';
 
 interface Props {
   ticker: string;
   name: string;
   price: string;
+  priceUsd: number;
   change: number;
   isWatchlisted?: boolean;
   onToggleWatchlist?: () => void;
 }
 
-export default function CoinCard({ ticker, name, price, change, isWatchlisted, onToggleWatchlist }: Props) {
+export default function CoinCard({ ticker, name, priceUsd, change, isWatchlisted, onToggleWatchlist }: Props) {
   const navigate = useNavigate();
+  const { displayCurrency, currencyRates } = useApp();
   const up       = change >= 0;
+  const price    = formatUsdToDisplay(priceUsd, displayCurrency, currencyRates);
 
   return (
     <div

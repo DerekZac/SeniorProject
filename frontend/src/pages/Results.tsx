@@ -6,6 +6,7 @@ import { api, type CoinMarketDetail, type NewsItem, filterNewsByCoin } from '../
 import { getCoinDescription } from '../lib/coinDescriptions';
 import { EXCHANGES } from '../lib/exchangeData';
 import { useApp } from '../context/AppContext';
+import { formatUsdToDisplay } from '../lib/displayCurrency';
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
@@ -22,7 +23,7 @@ export default function Results() {
   const [news, setNews]           = useState<NewsItem[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
-  const { isWatchlisted, toggleWatchlist } = useApp();
+  const { isWatchlisted, toggleWatchlist, displayCurrency, currencyRates } = useApp();
 
   useEffect(() => {
     setLoading(true);
@@ -56,11 +57,15 @@ export default function Results() {
 
   if (!data) return null;
 
-  const { geckoId, name, ticker, price, change, marketCap, volume24h, circulatingSupply, allTimeHigh, athDate, rank } = data;
+  const { geckoId, name, ticker, change, circulatingSupply, athDate, rank } = data;
   const up          = change >= 0;
   const watchlisted = isWatchlisted(ticker);
   const desc        = getCoinDescription(geckoId);
   const cardStyle   = { background: 'var(--bg-surface)', border: '1px solid var(--border)' };
+  const displayPrice = formatUsdToDisplay(data.priceUsd, displayCurrency, currencyRates);
+  const displayMarketCap = formatUsdToDisplay(data.marketCapUsd, displayCurrency, currencyRates, true);
+  const displayVolume24h = formatUsdToDisplay(data.volume24hUsd, displayCurrency, currencyRates, true);
+  const displayAllTimeHigh = formatUsdToDisplay(data.allTimeHighUsd, displayCurrency, currencyRates);
 
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-10 space-y-4">
@@ -92,7 +97,7 @@ export default function Results() {
               )}
             </div>
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold text-strong">{price}</span>
+              <span className="text-3xl font-bold text-strong">{displayPrice}</span>
               <span className={`text-base font-medium ${up ? 'text-[#00E676]' : 'text-[#FF3355]'}`}>
                 {up ? '+' : ''}{change}% (24h)
               </span>
@@ -107,10 +112,10 @@ export default function Results() {
           <h2 className="text-strong font-semibold text-sm">Market Data</h2>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0" style={{ borderColor: 'var(--border)' }}>
-          <MetricCard label="Market Cap"          value={marketCap} />
-          <MetricCard label="24h Volume"          value={volume24h} />
+          <MetricCard label="Market Cap"          value={displayMarketCap} />
+          <MetricCard label="24h Volume"          value={displayVolume24h} />
           <MetricCard label="Circulating Supply"  value={circulatingSupply} />
-          <MetricCard label={`All-Time High (${athDate})`} value={allTimeHigh} />
+          <MetricCard label={`All-Time High (${athDate})`} value={displayAllTimeHigh} />
         </div>
       </div>
 

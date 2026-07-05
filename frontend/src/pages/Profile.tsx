@@ -7,15 +7,16 @@ import { useAuth } from '../context/AuthContext';
 import { getUserCreatedAt } from '../lib/auth';
 import { Settings, Sun, Moon, DollarSign } from 'lucide-react';
 import { useTheme } from '../lib/useTheme';
+import { DISPLAY_CURRENCIES } from '../lib/displayCurrency';
+import { formatUsdToDisplay } from '../lib/displayCurrency';
 
 export default function Profile() {
-  const { watchlist, toggleWatchlist, searchHistory, clearSearchHistory } = useApp();
+  const { watchlist, toggleWatchlist, searchHistory, clearSearchHistory, displayCurrency, setDisplayCurrency, currencyRates } = useApp();
   const { session, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [watchlistCoins, setWatchlistCoins] = useState<Coin[]>([]);
   const [loading, setLoading] = useState(false);
-  const [currency, setCurrency] = useState('USD');
 
   const darkMode = theme === 'dark';
 
@@ -113,7 +114,7 @@ export default function Profile() {
                     {coin.ticker}
                   </Link>
                   <span className="text-sm truncate" style={{ color: 'var(--text-muted)' }}>{coin.name}</span>
-                  <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{coin.price}</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{formatUsdToDisplay(coin.priceUsd, displayCurrency, currencyRates)}</span>
                   <span className={`text-xs font-medium ${coin.change >= 0 ? 'text-[#00E676]' : 'text-[#FF3355]'}`}>
                     {coin.change >= 0 ? '+' : ''}{coin.change}%
                   </span>
@@ -220,8 +221,8 @@ export default function Profile() {
               <span className="text-sm" style={{ color: 'var(--text)' }}>Display Currency</span>
             </div>
             <select
-              value={currency}
-              onChange={e => setCurrency(e.target.value)}
+              value={displayCurrency}
+              onChange={e => setDisplayCurrency(e.target.value as typeof displayCurrency)}
               className="text-xs rounded-lg px-2.5 py-1.5 outline-none cursor-pointer"
               style={{
                 background: 'var(--bg)',
@@ -229,7 +230,7 @@ export default function Profile() {
                 color: 'var(--text-muted)',
               }}
             >
-              {['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'BTC', 'ETH'].map(c => (
+              {DISPLAY_CURRENCIES.map(c => (
                 <option key={c} value={c} style={{ background: 'var(--bg-surface)' }}>{c}</option>
               ))}
             </select>

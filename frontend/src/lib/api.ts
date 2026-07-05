@@ -7,6 +7,7 @@ export interface Coin {
   ticker: string;
   name: string;
   price: string;
+  priceUsd: number;
   change: number;
 }
 
@@ -24,11 +25,15 @@ export interface CoinMarketDetail {
   ticker: string;
   name: string;
   price: string;
+  priceUsd: number;
   change: number;
   marketCap: string;
+  marketCapUsd: number;
   volume24h: string;
+  volume24hUsd: number;
   circulatingSupply: string;
   allTimeHigh: string;
+  allTimeHighUsd: number;
   athDate: string;
   rank: number;
 }
@@ -194,6 +199,7 @@ export const api = {
         ticker: info?.ticker ?? m.symbol.toUpperCase(),
         name: m.name,
         price: formatPrice(m.current_price),
+        priceUsd: m.current_price,
         change: parseFloat((m.price_change_percentage_24h ?? 0).toFixed(2)),
       };
     });
@@ -216,6 +222,7 @@ export const api = {
         ticker: info?.ticker ?? m.symbol.toUpperCase(),
         name: m.name,
         price: formatPrice(m.current_price),
+        priceUsd: m.current_price,
         change: parseFloat((m.price_change_percentage_24h ?? 0).toFixed(2)),
       };
     });
@@ -243,11 +250,15 @@ export const api = {
       ticker,
       name: m.name,
       price: formatPrice(m.current_price),
+      priceUsd: m.current_price,
       change: parseFloat((m.price_change_percentage_24h ?? 0).toFixed(2)),
       marketCap: formatLargeNumber(m.market_cap),
+      marketCapUsd: m.market_cap,
       volume24h: formatLargeNumber(m.total_volume),
+      volume24hUsd: m.total_volume,
       circulatingSupply: supplyStr,
       allTimeHigh: formatPrice(m.ath),
+      allTimeHighUsd: m.ath,
       athDate,
       rank: m.market_cap_rank ?? 0,
     };

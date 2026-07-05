@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Search, Loader2, BarChart2 } from 'lucide-react';
 import { api, type CoinMarketDetail } from '../lib/api';
+import { useApp } from '../context/AppContext';
+import { formatUsdToDisplay } from '../lib/displayCurrency';
 
 interface ColState {
   loading: boolean;
@@ -112,8 +114,13 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 }
 
 function CoinColumn({ data }: { data: CoinMarketDetail }) {
-  const { name, ticker, price, change, marketCap, volume24h, circulatingSupply, allTimeHigh, athDate, rank } = data;
+  const { name, ticker, change, circulatingSupply, athDate, rank } = data;
   const up = change >= 0;
+  const { displayCurrency, currencyRates } = useApp();
+  const displayPrice = formatUsdToDisplay(data.priceUsd, displayCurrency, currencyRates);
+  const displayMarketCap = formatUsdToDisplay(data.marketCapUsd, displayCurrency, currencyRates, true);
+  const displayVolume24h = formatUsdToDisplay(data.volume24hUsd, displayCurrency, currencyRates, true);
+  const displayAllTimeHigh = formatUsdToDisplay(data.allTimeHighUsd, displayCurrency, currencyRates);
 
   return (
     <div className="flex flex-col gap-4">
@@ -128,7 +135,7 @@ function CoinColumn({ data }: { data: CoinMarketDetail }) {
           )}
         </div>
         <div className="flex items-baseline gap-3">
-          <span className="text-xl font-bold text-strong">{price}</span>
+          <span className="text-xl font-bold text-strong">{displayPrice}</span>
           <span className={`text-sm font-medium ${up ? 'text-[#00E676]' : 'text-[#FF3355]'}`}>
             {up ? '+' : ''}{change}% (24h)
           </span>
@@ -136,10 +143,10 @@ function CoinColumn({ data }: { data: CoinMarketDetail }) {
       </div>
 
       <div>
-        <MetricRow label="Market Cap"         value={marketCap} />
-        <MetricRow label="24h Volume"         value={volume24h} />
+        <MetricRow label="Market Cap"         value={displayMarketCap} />
+        <MetricRow label="24h Volume"         value={displayVolume24h} />
         <MetricRow label="Circulating Supply" value={circulatingSupply} />
-        <MetricRow label={`All-Time High (${athDate})`} value={allTimeHigh} />
+        <MetricRow label={`All-Time High (${athDate})`} value={displayAllTimeHigh} />
       </div>
     </div>
   );

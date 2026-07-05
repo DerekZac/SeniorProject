@@ -1,8 +1,11 @@
 import type { Coin } from '../lib/api';
+import { useApp } from '../context/AppContext';
+import { formatUsdToDisplay } from '../lib/displayCurrency';
 
 interface Props { coins: Coin[]; }
 
 export default function TickerStrip({ coins }: Props) {
+  const { displayCurrency, currencyRates } = useApp();
   if (!coins.length) return null;
   const doubled = [...coins, ...coins];
 
@@ -15,7 +18,7 @@ export default function TickerStrip({ coins }: Props) {
         {doubled.map((coin, i) => (
           <span key={i} className="inline-flex items-center gap-2.5 px-6 text-sm">
             <span className="font-bold text-[#F7931A]">{coin.ticker}</span>
-            <span className="font-medium" style={{ color: 'var(--text-strong)' }}>{coin.price}</span>
+            <span className="font-medium" style={{ color: 'var(--text-strong)' }}>{formatUsdToDisplay(coin.priceUsd, displayCurrency, currencyRates)}</span>
             <span className={`text-xs font-semibold ${coin.change >= 0 ? 'text-[#00E676]' : 'text-[#FF3355]'}`}>
               {coin.change >= 0 ? '▲' : '▼'} {Math.abs(coin.change)}%
             </span>

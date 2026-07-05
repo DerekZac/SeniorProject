@@ -6,6 +6,7 @@ import { SkeletonResultPage } from '../components/Skeleton';
 import { api, type CoinMarketDetail, type PricePoint } from '../lib/api';
 import { getCoinDescription } from '../lib/coinDescriptions';
 import { useApp } from '../context/AppContext';
+import { formatUsdToDisplay } from '../lib/displayCurrency';
 
 function MetricRow({ label, value }: { label: string; value: string }) {
   return (
@@ -21,7 +22,7 @@ export default function CoinDetail() {
   const [data, setData]             = useState<CoinMarketDetail | null>(null);
   const [history, setHistory]       = useState<PricePoint[]>([]);
   const [loading, setLoading]       = useState(true);
-  const { isWatchlisted, toggleWatchlist } = useApp();
+  const { isWatchlisted, toggleWatchlist, displayCurrency, currencyRates } = useApp();
 
   useEffect(() => {
     setLoading(true);
@@ -38,16 +39,18 @@ export default function CoinDetail() {
   if (loading) return <SkeletonResultPage />;
   if (!data)   return null;
 
-  const { geckoId, name, ticker, price, change, marketCap, volume24h, circulatingSupply, allTimeHigh, athDate, rank } = data;
+  const { geckoId, name, ticker, change, circulatingSupply, athDate, rank } = data;
   const up          = change >= 0;
   const watchlisted = isWatchlisted(ticker);
   const desc        = getCoinDescription(geckoId);
   const cardStyle   = undefined; // replaced by .card-surface
+  const displayPrice = formatUsdToDisplay(data.priceUsd, displayCurrency, currencyRates);
+  const displayMarketCap = formatUsdToDisplay(data.marketCapUsd, displayCurrency, currencyRates, true);
+  const displayVolume24h = formatUsdToDisplay(data.volume24hUsd, displayCurrency, currencyRates, true);
+  const displayAllTimeHigh = formatUsdToDisplay(data.allTimeHighUsd, displayCurrency, currencyRates);
 
   const priceFormatter = (v: number) =>
-    v >= 1000 ? `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}` :
-    v >= 1    ? `$${v.toFixed(2)}` :
-    `$${v.toFixed(6)}`;
+    formatUsdToDisplay(v, displayCurrency, currencyRates);
 
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-10 space-y-4">
@@ -66,7 +69,7 @@ export default function CoinDetail() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-2xl font-bold text-strong">{price}</span>
+              <span className="text-2xl font-bold text-strong">{displayPrice}</span>
               <span className={`font-medium ${up ? 'text-[#00E676]' : 'text-[#FF3355]'}`}>
                 {up ? '+' : ''}{change}% (24h)
               </span>
@@ -86,7 +89,7 @@ export default function CoinDetail() {
       {history.length > 0 && (
         <div className="rounded-xl p-5 md:p-6 card-surface">
           <h2 className="text-strong font-semibold mb-1">Price History — Last 7 Days</h2>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Daily closing price in USD</p>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Daily closing price in {displayCurrency}</p>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={history} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -114,10 +117,10 @@ export default function CoinDetail() {
       {/* Market metrics */}
       <div className="rounded-xl p-5 md:p-6 card-surface">
         <h2 className="text-strong font-semibold mb-3">Market Data</h2>
-        <MetricRow label="Market Cap"                     value={marketCap} />
-        <MetricRow label="24h Trading Volume"             value={volume24h} />
+        <MetricRow label="Market Cap"                     value={displayMarketCap} />
+        <MetricRow label="24h Trading Volume"             value={displayVolume24h} />
         <MetricRow label="Circulating Supply"             value={circulatingSupply} />
-        <MetricRow label={`All-Time High (${athDate})`}  value={allTimeHigh} />
+        <MetricRow label={`All-Time High (${athDate})`}  value={displayAllTimeHigh} />
         {rank > 0 && <MetricRow label="CoinGecko Rank"   value={`#${rank}`} />}
       </div>
 
