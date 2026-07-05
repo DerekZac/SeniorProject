@@ -153,10 +153,33 @@ export default function Exchanges() {
         </div>
       )}
 
-      <div style={{ marginTop: '2.5rem', padding: '1rem 1.25rem', background: 'rgba(33,33,58,0.5)', border: '1px solid var(--border)', borderRadius: '8px' }}>
-        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.55, margin: 0 }}>
-          <strong style={{ color: 'var(--text-strong)' }}>Disclaimer:</strong> Exchange listings are for informational purposes only. Fee structures change frequently — verify current rates on each platform. Crypton is not affiliated with any exchange. Always research thoroughly before depositing funds.
-        </p>
+      <div
+        style={{
+          marginTop: '2.5rem',
+          padding: '1rem 1.25rem',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderLeft: '3px solid var(--signin-color)',
+          borderRadius: '12px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.06)',
+        }}
+      >
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+          <div
+            aria-hidden="true"
+            style={{
+              width: '0.75rem',
+              height: '0.75rem',
+              marginTop: '0.3rem',
+              borderRadius: '9999px',
+              background: 'var(--signin-color)',
+              flexShrink: 0,
+            }}
+          />
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+            <strong style={{ color: 'var(--text-strong)' }}>Legal Disclaimer:</strong> Exchange listings are for informational purposes only. Fee structures change frequently, so verify current rates on each platform. Crypton is not affiliated with any exchange. Always research thoroughly before depositing funds.
+          </p>
+        </div>
       </div>
     </div>
   );
