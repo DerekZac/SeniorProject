@@ -4,8 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
-import Results from "./pages/Results";
-import CoinDetail from "./pages/CoinDetail";
+import CoinPage from "./pages/CoinPage";
 import Compare from "./pages/Compare";
 import Watchlist from "./pages/Watchlist";
 import News from "./pages/News";
@@ -31,8 +30,8 @@ export default function App() {
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<Home />} />
-              <Route path="/results/:coin" element={<Results />} />
-              <Route path="/coin/:coin" element={<CoinDetail />} />
+              <Route path="/results/:coin" element={<CoinPage />} />
+              <Route path="/coin/:coin" element={<CoinPage />} />
               <Route path="/compare" element={<Compare />} />
               <Route path="/news" element={<News />} />
               <Route path="/learn" element={<Learn />} />
