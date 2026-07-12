@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowRight, Star, ArrowUpRight, Globe, FileText, Search, Twitter } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { SkeletonResultPage } from '../components/Skeleton';
-import { api, type CoinMarketDetail, type NewsItem, filterNewsByCoin } from '../lib/api';
+import { api, type CoinMarketDetail, type PricePoint, type NewsItem, filterNewsByCoin } from '../lib/api';
 import { getCoinDescription } from '../lib/coinDescriptions';
 import { EXCHANGES } from '../lib/exchangeData';
 import { useApp } from '../context/AppContext';
 import { formatUsdToDisplay } from '../lib/displayCurrency';
+
+function MetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-3 metric-row">
+      <span className="text-sm text-muted">{label}</span>
+      <span className="text-sm font-medium text-strong">{value}</span>
+    </div>
+  );
+}
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
@@ -17,9 +27,10 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function Results() {
+export default function CoinPage() {
   const { coin } = useParams<{ coin: string }>();
   const [data, setData]           = useState<CoinMarketDetail | null>(null);
+  const [history, setHistory]     = useState<PricePoint[]>([]);
   const [news, setNews]           = useState<NewsItem[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
@@ -27,13 +38,15 @@ export default function Results() {
 
   useEffect(() => {
     setLoading(true);
-    setData(null);
-    setError(null);
     Promise.all([
       api.getCoinDetail(coin ?? 'bitcoin'),
       api.getNews(),
-    ]).then(([detail, allNews]) => {
+    ]).then(([detail]) => {
       setData(detail);
+      return Promise.all([api.getCoinPriceHistory(detail.geckoId), detail]);
+    }).then(async ([pts, detail]) => {
+      setHistory(pts);
+      const allNews = await api.getNews();
       setNews(filterNewsByCoin(allNews, detail.name, detail.ticker));
     }).catch(() => {
       setError('Could not load coin data. Make sure you entered a valid coin name or ticker.');
@@ -66,6 +79,9 @@ export default function Results() {
   const displayMarketCap = formatUsdToDisplay(data.marketCapUsd, displayCurrency, currencyRates, true);
   const displayVolume24h = formatUsdToDisplay(data.volume24hUsd, displayCurrency, currencyRates, true);
   const displayAllTimeHigh = formatUsdToDisplay(data.allTimeHighUsd, displayCurrency, currencyRates);
+
+  const priceFormatter = (v: number) =>
+    formatUsdToDisplay(v, displayCurrency, currencyRates);
 
   return (
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-10 space-y-4">
@@ -105,6 +121,35 @@ export default function Results() {
           </div>
         </div>
       </div>
+
+      {/* 7-Day Price Chart */}
+      {history.length > 0 && (
+        <div className="rounded-xl p-5 md:p-6" style={cardStyle}>
+          <h2 className="text-strong font-semibold mb-1">Price History — Last 7 Days</h2>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Daily closing price in {displayCurrency}</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={history} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="day" stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
+              <YAxis stroke="var(--text-muted)" tick={{ fontSize: 12 }} tickFormatter={priceFormatter} />
+              <Tooltip
+                contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-strong)' }}
+                labelStyle={{ color: 'var(--text-strong)' }}
+                itemStyle={{ color: '#F7931A' }}
+                formatter={(v: number) => [priceFormatter(v), 'Price']}
+              />
+              <Line
+                type="monotone"
+                dataKey="price"
+                stroke="#F7931A"
+                strokeWidth={2.5}
+                dot={{ fill: '#F7931A', r: 4, strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: '#F7931A' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Market metrics */}
       <div className="rounded-xl overflow-hidden" style={cardStyle}>
@@ -223,14 +268,7 @@ export default function Results() {
         </div>
       )}
 
-      {/* CTA */}
-      <Link
-        to={`/coin/${coin}`}
-        className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl font-semibold text-strong transition-all hover:scale-[1.01]"
-        style={{ background: '#F7931A' }}
-      >
-        View Full {name} Detail <ArrowRight size={18} />
-      </Link>
+      <Link to="/" className="inline-block text-sm transition-colors hover:text-[#F7931A] text-muted">← Back to Home</Link>
     </div>
   );
 }
