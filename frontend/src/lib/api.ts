@@ -43,6 +43,36 @@ export interface PricePoint {
   price: number;
 }
 
+// ─── AI Sentiment from Python/Gemini backend ──────────────────────────────────
+
+export interface AISentiment {
+  classification: 'Bullish' | 'Neutral' | 'Bearish';
+  confidence: number;
+  market_score: number;
+  summary: string;
+  bullish_points: string[];
+  bearish_points: string[];
+  important_events: string[];
+  short_term: string;
+  long_term: string;
+}
+
+export interface CoinSentimentResult {
+  name: string;
+  ticker: string;
+  sentiment: 'Bullish' | 'Neutral' | 'Bearish';
+  confidence: number;
+  price: string;
+  change: number;
+  keywords: string[];
+  aiSentiment?: AISentiment;
+}
+
+export interface SentimentPoint {
+  date: string;
+  score: number;
+}
+
 // ─── Internal TTL cache ───────────────────────────────────────────────────────
 
 const _cache = new Map<string, { data: unknown; exp: number }>();
@@ -60,8 +90,138 @@ function setCache<T>(key: string, data: T, ttlMs: number): void {
 const TTL = {
   prices: 60_000,
   news:   10 * 60_000,
+  ai:     15 * 60_000,
   error:  30_000,
 };
+
+// ─── Python AI backend ────────────────────────────────────────────────────────
+
+const AI_URL = 'http://127.0.0.1:8000';
+const JAVA_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+async function fetchAISentiment(
+  coin: string,
+  ticker: string,
+  articles: { title: string; source: string; url: string }[]
+): Promise<AISentiment | null> {
+  const cacheKey = `ai:${ticker}`;
+  const cached = getCache<AISentiment>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(`${JAVA_URL}/api/sentiment/${ticker}`);
+    const data = await res.json();
+    if (data.success && data.cached) {
+      const d = data.data;
+      const ai: AISentiment = {
+        classification: d.classification,
+        confidence: d.confidence,
+        market_score: d.market_score,
+        summary: d.summary,
+        bullish_points: d.bullish_points,
+        bearish_points: d.bearish_points,
+        important_events: d.important_events,
+        short_term: d.short_term,
+        long_term: d.long_term,
+      };
+      setCache(cacheKey, ai, TTL.ai);
+      logger.debug('api', `AI sentiment loaded from DB cache for ${ticker}`);
+      return ai;
+    }
+  } catch (e) {
+    logger.warn('api', 'DB cache check failed', { error: String(e) });
+  }
+
+  if (articles.length === 0) return null;
+
+  try {
+    logger.debug('api', `GET AI sentiment for ${coin}`);
+    const res = await fetch(`${AI_URL}/classify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coin, ticker, articles: articles.slice(0, 5) }),
+    });
+
+    if (!res.ok) return null;
+    const result: AISentiment = await res.json();
+
+    try {
+      await fetch(`${JAVA_URL}/api/sentiment/${ticker}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...result, coinName: coin }),
+      });
+      logger.debug('api', `AI sentiment saved to DB for ${ticker}`);
+    } catch (e) {
+      logger.warn('api', 'Failed to save AI sentiment to DB', { error: String(e) });
+    }
+
+    setCache(cacheKey, result, TTL.ai);
+    return result;
+  } catch (e) {
+    logger.warn('api', 'AI sentiment fetch failed', { error: String(e) });
+    return null;
+  }
+}
+
+
+// ─── News filtering ────────────────────────────────────────────────────────────
+
+async function fetchRSSNews(): Promise<NewsItem[]> {
+  const cacheKey = 'news:rss';
+  const cached = getCache<NewsItem[]>(cacheKey);
+  if (cached) return cached;
+
+  logger.debug('api', 'GET RSS feeds from trusted outlets');
+
+  const results = await Promise.allSettled(
+    RSS_SOURCES.map(async ({ feed, source }) => {
+      const res = await fetch(RSS2JSON + encodeURIComponent(feed));
+      if (!res.ok) return [] as NewsItem[];
+      const json = await res.json();
+      if (json.status !== 'ok') return [] as NewsItem[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (json.items ?? []).slice(0, 6).map((item: any) => ({
+        title: item.title as string,
+        source,
+        timeAgo: item.pubDate
+          ? timeAgo(Math.floor(new Date(item.pubDate).getTime() / 1000))
+          : 'recently',
+        url: item.link as string,
+        trusted: true,
+      }));
+    })
+  );
+
+  const all: NewsItem[] = results
+    .flatMap(r => r.status === 'fulfilled' ? r.value : [])
+    .map((item, i) => ({ ...item, id: i + 1 }));
+
+  if (all.length > 0) {
+    setCache(cacheKey, all, TTL.news);
+  } else {
+    setCache(cacheKey, [], TTL.error);
+  }
+
+  return all;
+}
+
+function filterNewsByCoin(news: NewsItem[], coinName: string, ticker: string): NewsItem[] {
+  const lower = coinName.toLowerCase();
+  const tick  = ticker.toLowerCase();
+  const exact = news.filter(n =>
+    n.title.toLowerCase().includes(lower) ||
+    n.title.toLowerCase().includes(tick)
+  );
+
+  if (exact.length > 0) return exact;
+
+  return news.slice(0, 5);
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+
 
 // ─── RSS news sources ─────────────────────────────────────────────────────────
 
@@ -136,56 +296,56 @@ async function fetchGeckoMarkets(ids: string[]): Promise<GeckoMarket[]> {
 
 // ─── News — RSS from trusted outlets via rss2json ────────────────────────────
 
-async function fetchRSSNews(): Promise<NewsItem[]> {
-  const cacheKey = 'news:rss';
-  const cached = getCache<NewsItem[]>(cacheKey);
-  if (cached) return cached;
+// async function fetchRSSNews(): Promise<NewsItem[]> {
+//   const cacheKey = 'news:rss';
+//   const cached = getCache<NewsItem[]>(cacheKey);
+//   if (cached) return cached;
 
-  logger.debug('api', 'GET RSS feeds from trusted outlets');
+//   logger.debug('api', 'GET RSS feeds from trusted outlets');
 
-  const results = await Promise.allSettled(
-    RSS_SOURCES.map(async ({ feed, source }) => {
-      const res = await fetch(RSS2JSON + encodeURIComponent(feed));
-      if (!res.ok) return [] as NewsItem[];
-      const json = await res.json();
-      if (json.status !== 'ok') return [] as NewsItem[];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (json.items ?? []).slice(0, 6).map((item: any) => ({
-        title: item.title as string,
-        source,
-        timeAgo: item.pubDate
-          ? timeAgo(Math.floor(new Date(item.pubDate).getTime() / 1000))
-          : 'recently',
-        url: item.link as string,
-        trusted: true,
-      }));
-    })
-  );
+//   const results = await Promise.allSettled(
+//     RSS_SOURCES.map(async ({ feed, source }) => {
+//       const res = await fetch(RSS2JSON + encodeURIComponent(feed));
+//       if (!res.ok) return [] as NewsItem[];
+//       const json = await res.json();
+//       if (json.status !== 'ok') return [] as NewsItem[];
+//       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//       return (json.items ?? []).slice(0, 6).map((item: any) => ({
+//         title: item.title as string,
+//         source,
+//         timeAgo: item.pubDate
+//           ? timeAgo(Math.floor(new Date(item.pubDate).getTime() / 1000))
+//           : 'recently',
+//         url: item.link as string,
+//         trusted: true,
+//       }));
+//     })
+//   );
 
-  const all: NewsItem[] = results
-    .flatMap(r => r.status === 'fulfilled' ? r.value : [])
-    .map((item, i) => ({ ...item, id: i + 1 }));
+//   const all: NewsItem[] = results
+//     .flatMap(r => r.status === 'fulfilled' ? r.value : [])
+//     .map((item, i) => ({ ...item, id: i + 1 }));
 
-  if (all.length > 0) {
-    setCache(cacheKey, all, TTL.news);
-  } else {
-    setCache(cacheKey, [], TTL.error);
-  }
+//   if (all.length > 0) {
+//     setCache(cacheKey, all, TTL.news);
+//   } else {
+//     setCache(cacheKey, [], TTL.error);
+//   }
 
-  return all;
-}
+//   return all;
+// }
 
-// ─── Public utilities ─────────────────────────────────────────────────────────
+// // ─── Public utilities ─────────────────────────────────────────────────────────
 
-export function filterNewsByCoin(news: NewsItem[], coinName: string, ticker: string): NewsItem[] {
-  const lower = coinName.toLowerCase();
-  const tick  = ticker.toLowerCase();
-  const exact = news.filter(n =>
-    n.title.toLowerCase().includes(lower) ||
-    n.title.toLowerCase().includes(tick)
-  );
-  return exact.length > 0 ? exact.slice(0, 5) : news.slice(0, 5);
-}
+// export function filterNewsByCoin(news: NewsItem[], coinName: string, ticker: string): NewsItem[] {
+//   const lower = coinName.toLowerCase();
+//   const tick  = ticker.toLowerCase();
+//   const exact = news.filter(n =>
+//     n.title.toLowerCase().includes(lower) ||
+//     n.title.toLowerCase().includes(tick)
+//   );
+//   return exact.length > 0 ? exact.slice(0, 5) : news.slice(0, 5);
+// }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -285,4 +445,27 @@ export const api = {
     setCache(cacheKey, points, TTL.prices);
     return points;
   },
+
+
+  async getCoinSentiment(query: string): Promise<CoinSentimentResult> {
+    const info = resolveCoin(query);
+    const ticker = info?.ticker ?? query.toUpperCase();
+    const name = info?.name ?? query;
+
+    let aiSentiment: AISentiment | undefined;
+    try {
+      const allNews = await fetchRSSNews();
+      const coinNews = filterNewsByCoin(allNews, name, ticker);
+      const articles = coinNews.slice(0, 5).map(n => ({
+        title: n.title,
+        source: n.source,
+        url: n.url,
+      }));
+      const result = await fetchAISentiment(name, ticker, articles);
+      if (result) aiSentiment = result;
+    } catch (e) {
+      logger.warn('api', 'AI sentiment failed', { error: String(e) });
+    }
+    return { name, ticker, sentiment: 'Neutral', confidence: 0, price: '', change: 0, keywords: [], aiSentiment };
+  }
 };

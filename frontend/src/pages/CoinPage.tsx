@@ -1,13 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, Star, ArrowUpRight, Globe, FileText, Search, Twitter } from 'lucide-react';
+import { ArrowRight, Star, ArrowUpRight, Globe, FileText, Search, Twitter, Sparkles, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { SkeletonResultPage } from '../components/Skeleton';
-import { api, type CoinMarketDetail, type PricePoint, type NewsItem, filterNewsByCoin } from '../lib/api';
+import { logger } from '../lib/logger';
+import { api, type CoinMarketDetail, type PricePoint, type AISentiment } from '../lib/api';
 import { getCoinDescription } from '../lib/coinDescriptions';
 import { EXCHANGES } from '../lib/exchangeData';
 import { useApp } from '../context/AppContext';
 import { formatUsdToDisplay } from '../lib/displayCurrency';
+
+const COLORS = {
+  bullish: '#00E676',
+  bearish: '#FF3355',
+  mixed:   '#FFB020',
+};
+
+function aiColor(classification: string) {
+  if (classification === 'Bullish') return COLORS.bullish;
+  if (classification === 'Bearish') return COLORS.bearish;
+  return COLORS.mixed;
+}
 
 function MetricRow({ label, value }: { label: string; value: string }) {
   return (
@@ -31,26 +44,43 @@ export default function CoinPage() {
   const { coin } = useParams<{ coin: string }>();
   const [data, setData]           = useState<CoinMarketDetail | null>(null);
   const [history, setHistory]     = useState<PricePoint[]>([]);
-  const [news, setNews]           = useState<NewsItem[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
+  const [aiSentiment, setAiSentiment]   = useState<AISentiment | undefined>();
+  const [aiLoading, setAiLoading]       = useState(false);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
   const { isWatchlisted, toggleWatchlist, displayCurrency, currencyRates } = useApp();
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      api.getCoinDetail(coin ?? 'bitcoin'),
-      api.getNews(),
-    ]).then(([detail]) => {
-      setData(detail);
-      return Promise.all([api.getCoinPriceHistory(detail.geckoId), detail]);
-    }).then(async ([pts, detail]) => {
-      setHistory(pts);
-      const allNews = await api.getNews();
-      setNews(filterNewsByCoin(allNews, detail.name, detail.ticker));
-    }).catch(() => {
-      setError('Could not load coin data. Make sure you entered a valid coin name or ticker.');
-    }).finally(() => setLoading(false));
+    // Fetch market data first (sets loading=false immediately)
+    const fetchData = async () => {
+      try {
+        const detail = await api.getCoinDetail(coin ?? 'bitcoin');
+        setData(detail);
+
+        const [pts] = await Promise.all([api.getCoinPriceHistory(detail.geckoId)]);
+        setHistory(pts);
+      } catch (e) {
+        setError('Could not load coin data. Make sure you entered a valid coin name or ticker.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    // Fetch AI sentiment separately (doesn't block page load)
+    const fetchAISentiment = async () => {
+      try {
+        const result = await api.getCoinSentiment(coin ?? 'bitcoin');
+        if (result.aiSentiment) {
+          setAiSentiment(result.aiSentiment);
+        }
+      } catch (e) {
+        logger.warn('app', 'AI sentiment failed on load', { error: String(e) });
+      }
+    };
+
+    fetchAISentiment();
   }, [coin]);
 
   if (loading) return <SkeletonResultPage />;
@@ -244,26 +274,120 @@ export default function CoinPage() {
         </div>
       </div>
 
-      {/* Related news */}
-      {news.length > 0 && (
-        <div className="rounded-xl p-5 md:p-6" style={cardStyle}>
-          <h2 className="text-strong font-semibold mb-4">In the News</h2>
-          <div className="flex flex-col gap-0">
-            {news.map(item => (
-              <a
-                key={item.id}
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="data-row group flex items-baseline gap-4"
-                style={{ padding: '0.875rem 0', borderBottom: '1px solid #21213A', textDecoration: 'none' }}
-              >
-                <span className="section-label hidden sm:inline" style={{ width: '7rem', flexShrink: 0 }}>{item.source}</span>
-                <span className="row-title flex-1 line-clamp-1 text-sm transition-colors duration-150" style={{ color: 'var(--text-strong)', minWidth: 0 }}>{item.title}</span>
-                <span className="section-label hidden md:inline" style={{ flexShrink: 0 }}>{item.timeAgo}</span>
-                <ArrowUpRight size={13} style={{ color: '#3A3A5A', flexShrink: 0 }} className="group-hover:text-[#F7931A] transition-colors" />
-              </a>
-            ))}
+      {/* AI Sentiment Section */}
+      {/* {!aiSentiment && !aiLoading && (
+        <button
+          onClick={async () => {
+            setAiLoading(true);
+            try {
+              const result = await api.getCoinSentiment(coin ?? 'bitcoin');
+              if (result.aiSentiment) {
+                setAiSentiment(result.aiSentiment);
+              }
+            } catch (e) {
+              logger.warn('app', 'AI sentiment failed on button click', { error: String(e) });
+            } finally {
+              setAiLoading(false);
+            }
+          }}
+          className="w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
+          style={{ background: '#16162A', border: '1px solid #21213A', color: '#F7931A' }}
+        >
+          <Sparkles size={16} />
+          Analyze with AI
+        </button>
+      )} */}
+
+      {!aiSentiment && !aiLoading && (
+        <div
+          className="rounded-xl p-5 md:p-6 flex items-center gap-3"
+          style={{ background: '#16162A', border: '1px solid #21213A' }}
+        >
+          <Loader2 size={16} className="animate-spin" style={{ color: '#F7931A' }} />
+          <span style={{ color: '#5A5A7A' }}>Analyzing news with Gemini AI...</span>
+        </div>
+      )}
+
+      {aiSentiment && (
+        <div
+          className="rounded-xl p-5 md:p-6"
+          style={{ background: '#16162A', border: `1px solid ${aiColor(aiSentiment.classification)}40` }}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles size={16} style={{ color: '#F7931A' }} />
+            <h2 className="text-white font-semibold">AI News Analysis</h2>
+            <span
+              className="ml-auto text-xs font-semibold px-2.5 py-1 rounded-full"
+              style={{
+                color: aiColor(aiSentiment.classification),
+                background: `${aiColor(aiSentiment.classification)}18`,
+                border: `1px solid ${aiColor(aiSentiment.classification)}30`,
+              }}
+            >
+              {aiSentiment.classification}
+            </span>
+          </div>
+
+          <p className="text-sm mb-4" style={{ color: '#A0A0B8', lineHeight: 1.6 }}>
+            {aiSentiment.summary}
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {aiSentiment.bullish_points.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <TrendingUp size={13} style={{ color: '#00E676' }} />
+                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#00E676' }}>
+                    Bullish Catalysts
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {aiSentiment.bullish_points.slice(0, 3).map((p, i) => (
+                    <li key={i} className="text-xs flex gap-2" style={{ color: '#A0A0B8' }}>
+                      <span style={{ color: '#00E676' }}>+</span> {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {aiSentiment.bearish_points.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <TrendingDown size={13} style={{ color: '#FF3355' }} />
+                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#FF3355' }}>
+                    Bearish Risks
+                  </span>
+                </div>
+                <ul className="space-y-1.5">
+                  {aiSentiment.bearish_points.slice(0, 3).map((p, i) => (
+                    <li key={i} className="text-xs flex gap-2" style={{ color: '#A0A0B8' }}>
+                      <span style={{ color: '#FF3355' }}>−</span> {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-6 pt-3" style={{ borderTop: '1px solid #21213A' }}>
+            <div>
+              <span className="text-xs" style={{ color: '#5A5A7A' }}>Short Term</span>
+              <div className="text-sm font-semibold mt-0.5" style={{ color: aiColor(aiSentiment.short_term) }}>
+                {aiSentiment.short_term}
+              </div>
+            </div>
+            <div>
+              <span className="text-xs" style={{ color: '#5A5A7A' }}>Long Term</span>
+              <div className="text-sm font-semibold mt-0.5" style={{ color: aiColor(aiSentiment.long_term) }}>
+                {aiSentiment.long_term}
+              </div>
+            </div>
+            <div>
+              <span className="text-xs" style={{ color: '#5A5A7A' }}>Market Score</span>
+              <div className="text-sm font-semibold mt-0.5" style={{ color: aiColor(aiSentiment.classification) }}>
+                {aiSentiment.market_score > 0 ? '+' : ''}{aiSentiment.market_score}
+              </div>
+            </div>
           </div>
         </div>
       )}
