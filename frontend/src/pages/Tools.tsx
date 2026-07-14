@@ -1,10 +1,30 @@
 import { useState } from 'react';
-import { Calculator, RefreshCw, ArrowLeftRight } from 'lucide-react';
+import { Calculator, RefreshCw, ArrowLeftRight, Receipt } from 'lucide-react';
 import { COINS, type CoinInfo } from '../lib/coinMapping';
 import { api } from '../lib/api';
 
-type Tab = 'dca' | 'converter';
+type Tab = 'dca' | 'converter' | 'tax';
 type Frequency = 'weekly' | 'biweekly' | 'monthly';
+type HoldingTerm = 'short' | 'long';
+
+// US federal capital-gains rates used for the estimate.
+const SHORT_TERM_RATE = 0.22; // taxed as ordinary income
+const LONG_TERM_RATE  = 0.15;
+
+interface TaxResult {
+  gain: number;     // total capital gain (positive) or loss (negative)
+  rate: number;     // rate applied to a gain
+  taxOwed: number;  // 0 when there is a loss
+}
+
+// Explicit Crypton dark-theme palette for the Tax Estimator section.
+const TAX_PANEL  = '#1A1D27';
+const TAX_ACCENT = '#4B6BFB';
+const GAIN_COLOR = '#00E676';
+const LOSS_COLOR = '#FF3355';
+
+const usd = (n: number) =>
+  `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface DcaRow {
   period: string;
@@ -61,7 +81,30 @@ export default function Tools() {
   const [convLoading,  setConvLoading]  = useState(false);
   const [convPrice,    setConvPrice]    = useState<number | null>(null);
 
+  // ── Tax Estimator state ─────────────────────────────────────────────────────
+  const [taxPurchase, setTaxPurchase] = useState('');
+  const [taxSale,     setTaxSale]     = useState('');
+  const [taxCoins,    setTaxCoins]    = useState('');
+  const [taxTerm,     setTaxTerm]     = useState<HoldingTerm>('short');
+  const [taxResult,   setTaxResult]   = useState<TaxResult | null>(null);
+
   const allOptions = [...CRYPTO_OPTIONS, ...FIAT_CURRENCIES];
+
+  // ─── Tax Estimator Logic ─────────────────────────────────────────────────────
+
+  const estimateTax = () => {
+    const purchase = parseFloat(taxPurchase);
+    const sale     = parseFloat(taxSale);
+    const coins    = parseFloat(taxCoins);
+    if ([purchase, sale, coins].some(v => isNaN(v)) || coins <= 0) {
+      setTaxResult(null);
+      return;
+    }
+    const gain    = (sale - purchase) * coins;
+    const rate    = taxTerm === 'short' ? SHORT_TERM_RATE : LONG_TERM_RATE;
+    const taxOwed = gain > 0 ? gain * rate : 0; // capital losses owe no tax
+    setTaxResult({ gain, rate, taxOwed });
+  };
 
   // ─── DCA Logic ───────────────────────────────────────────────────────────────
 
@@ -183,6 +226,7 @@ export default function Tools() {
         {([
           { id: 'dca',       label: 'DCA Calculator',  Icon: Calculator },
           { id: 'converter', label: 'Crypto Converter', Icon: ArrowLeftRight },
+          { id: 'tax',       label: 'Tax Estimator',   Icon: Receipt },
         ] as const).map(({ id, label, Icon }) => (
           <button
             key={id}
@@ -398,6 +442,120 @@ export default function Tools() {
 
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1.25rem', lineHeight: 1.5 }}>
             * Fiat rates are approximate. Crypto prices are fetched live from CoinGecko. Not financial advice.
+          </p>
+        </div>
+      )}
+
+      {/* ── Tax Estimator ──────────────────────────────────────── */}
+      {tab === 'tax' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ background: TAX_PANEL, border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-strong)', marginBottom: '0.5rem' }}>
+              Crypto Tax Estimator
+            </h2>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.55 }}>
+              Estimate US federal capital-gains tax on a crypto sale. Short-term (held under 1 year) is taxed as ordinary income at 22%; long-term (held over 1 year) at 15%.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+              <InputRow label="Purchase price (USD / coin)">
+                <input
+                  type="number"
+                  value={taxPurchase}
+                  onChange={e => { setTaxPurchase(e.target.value); setTaxResult(null); }}
+                  min="0"
+                  placeholder="0.00"
+                  style={inputStyle}
+                  onFocus={e => (e.target.style.borderColor = TAX_ACCENT)}
+                  onBlur={e  => (e.target.style.borderColor = 'var(--border)')}
+                />
+              </InputRow>
+
+              <InputRow label="Sale price (USD / coin)">
+                <input
+                  type="number"
+                  value={taxSale}
+                  onChange={e => { setTaxSale(e.target.value); setTaxResult(null); }}
+                  min="0"
+                  placeholder="0.00"
+                  style={inputStyle}
+                  onFocus={e => (e.target.style.borderColor = TAX_ACCENT)}
+                  onBlur={e  => (e.target.style.borderColor = 'var(--border)')}
+                />
+              </InputRow>
+
+              <InputRow label="Amount of coins sold">
+                <input
+                  type="number"
+                  value={taxCoins}
+                  onChange={e => { setTaxCoins(e.target.value); setTaxResult(null); }}
+                  min="0"
+                  placeholder="0.00"
+                  style={inputStyle}
+                  onFocus={e => (e.target.style.borderColor = TAX_ACCENT)}
+                  onBlur={e  => (e.target.style.borderColor = 'var(--border)')}
+                />
+              </InputRow>
+
+              <InputRow label="Holding period">
+                <select
+                  value={taxTerm}
+                  onChange={e => { setTaxTerm(e.target.value as HoldingTerm); setTaxResult(null); }}
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                >
+                  <option value="short" style={{ background: TAX_PANEL }}>Short term (under 1 year)</option>
+                  <option value="long"  style={{ background: TAX_PANEL }}>Long term (over 1 year)</option>
+                </select>
+              </InputRow>
+            </div>
+
+            <button
+              onClick={estimateTax}
+              style={{ background: TAX_ACCENT, color: '#FFFFFF', border: 'none', borderRadius: '8px', padding: '0.75rem 1.5rem', fontSize: '0.9375rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Calculator size={14} />
+              Estimate Tax
+            </button>
+          </div>
+
+          {taxResult && (
+            <>
+              {/* Summary */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+                <div style={{ background: TAX_PANEL, padding: '1.25rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.125rem', fontWeight: 700, color: taxResult.gain >= 0 ? GAIN_COLOR : LOSS_COLOR, marginBottom: '0.375rem' }}>
+                    {usd(taxResult.gain)}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {taxResult.gain >= 0 ? 'Capital Gain' : 'Capital Loss'}
+                  </div>
+                </div>
+                <div style={{ background: TAX_PANEL, padding: '1.25rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-strong)', marginBottom: '0.375rem' }}>
+                    {(taxResult.rate * 100).toFixed(0)}%
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Tax Rate Applied ({taxTerm === 'short' ? 'Short term' : 'Long term'})
+                  </div>
+                </div>
+                <div style={{ background: TAX_PANEL, padding: '1.25rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.125rem', fontWeight: 700, color: TAX_ACCENT, marginBottom: '0.375rem' }}>
+                    {usd(taxResult.taxOwed)}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Estimated Tax Owed</div>
+                </div>
+              </div>
+
+              {taxResult.gain <= 0 && (
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  No tax is owed on a capital loss. A realized loss may be used to offset other capital gains.
+                </p>
+              )}
+            </>
+          )}
+
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5, marginTop: '0.25rem' }}>
+            This is an estimate based on federal tax rates only. State taxes and individual circumstances may vary. Consult a tax professional for accurate advice.
           </p>
         </div>
       )}
