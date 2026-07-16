@@ -96,7 +96,7 @@ const TTL = {
 
 // ─── Python AI backend ────────────────────────────────────────────────────────
 
-const AI_URL = 'http://127.0.0.1:8000';
+const AI_URL = import.meta.env.VITE_PYTHON_API_URL || 'https://merry-stillness-production-b20d.up.railway.app';
 const JAVA_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 async function fetchAISentiment(
