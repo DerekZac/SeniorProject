@@ -21,7 +21,7 @@ function MoverList({ title, movers, positive }: { title: string; movers: Mover[]
       </div>
       {movers.map(m => (
         <div key={m.geckoId}
-          onClick={() => navigate(`/results/${m.ticker.toLowerCase()}`)}
+          onClick={() => navigate(`/results/${m.geckoId}`)}
           className="data-row"
           style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.45rem 0', cursor: 'pointer', fontSize: '0.8125rem' }}>
           <span style={{ fontWeight: 700, color: 'var(--text-strong)', width: '3rem' }}>{m.ticker}</span>
