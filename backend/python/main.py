@@ -131,7 +131,7 @@ Source:
 {article.source}
 
 Article:
-{body[:6000]}
+{body[:3000]}
 """
 
     if len(combined_articles) < 500 or (request.coin.lower() not in combined_articles.lower() and request.ticker.lower() not in combined_articles.lower()):
@@ -142,7 +142,7 @@ Article:
             search = tavily.search(
                 query=f"{request.coin} {request.ticker} crypto news",
                 search_depth="advanced",
-                max_results=5,
+                max_results=3,
                 include_raw_content=True
             )
 
@@ -163,7 +163,7 @@ Source:
 {result.get("url", "")}
 
 Article:
-{body[:6000]}
+{body[:3000]}
 """
 
         except Exception as e:
