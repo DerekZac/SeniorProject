@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowRight, Star, ArrowUpRight, Globe, FileText, Search, Twitter, Sparkles, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { SkeletonResultPage } from '../components/Skeleton';
 import { logger } from '../lib/logger';
-import { api, type CoinMarketDetail, type PricePoint, type AISentiment } from '../lib/api';
+import { api, type CoinMarketDetail, type ChartPoint, type Timeframe, type AISentiment } from '../lib/api';
 import { getCoinDescription } from '../lib/coinDescriptions';
 import { EXCHANGES } from '../lib/exchangeData';
 import { useApp } from '../context/AppContext';
@@ -21,6 +21,14 @@ function aiColor(classification: string) {
   if (classification === 'Bearish') return COLORS.bearish;
   return COLORS.mixed;
 }
+
+const TIMEFRAMES: { label: string; value: Timeframe }[] = [
+  { label: '24H', value: 1 },
+  { label: '7D',  value: 7 },
+  { label: '30D', value: 30 },
+  { label: '1Y',  value: 365 },
+  { label: 'Max', value: 'max' },
+];
 
 function MetricRow({ label, value }: { label: string; value: string }) {
   return (
@@ -43,7 +51,8 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 export default function CoinPage() {
   const { coin } = useParams<{ coin: string }>();
   const [data, setData]           = useState<CoinMarketDetail | null>(null);
-  const [history, setHistory]     = useState<PricePoint[]>([]);
+  const [history, setHistory]     = useState<ChartPoint[]>([]);
+  const [days, setDays]           = useState<Timeframe>(7);
   const [aiSentiment, setAiSentiment]   = useState<AISentiment | undefined>();
   const [aiLoading, setAiLoading]       = useState(false);
   const [loading, setLoading]           = useState(true);
@@ -56,9 +65,6 @@ export default function CoinPage() {
       try {
         const detail = await api.getCoinDetail(coin ?? 'bitcoin');
         setData(detail);
-
-        const [pts] = await Promise.all([api.getCoinPriceHistory(detail.geckoId)]);
-        setHistory(pts);
       } catch (e) {
         setError('Could not load coin data. Make sure you entered a valid coin name or ticker.');
       } finally {
@@ -82,6 +88,14 @@ export default function CoinPage() {
 
     fetchAISentiment();
   }, [coin]);
+
+  // Load the price/volume chart whenever the coin or the timeframe changes.
+  useEffect(() => {
+    if (!data) return;
+    api.getMarketChart(data.geckoId, days)
+      .then(setHistory)
+      .catch(e => logger.warn('app', 'chart load failed', { error: String(e) }));
+  }, [data, days]);
 
   if (loading) return <SkeletonResultPage />;
 
@@ -152,31 +166,55 @@ export default function CoinPage() {
         </div>
       </div>
 
-      {/* 7-Day Price Chart */}
+      {/* Price + volume chart with timeframe toggle */}
       {history.length > 0 && (
         <div className="rounded-xl p-5 md:p-6" style={cardStyle}>
-          <h2 className="text-strong font-semibold mb-1">Price History — Last 7 Days</h2>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Daily closing price in {displayCurrency}</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={history} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
+          <div className="flex items-start justify-between flex-wrap gap-3 mb-1">
+            <h2 className="text-strong font-semibold">Price &amp; Volume</h2>
+            <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
+              {TIMEFRAMES.map(tf => (
+                <button
+                  key={tf.label}
+                  onClick={() => setDays(tf.value)}
+                  className="text-xs font-semibold px-2.5 py-1.5"
+                  style={{
+                    background: days === tf.value ? 'rgba(247,147,26,0.15)' : 'transparent',
+                    color:      days === tf.value ? '#F7931A' : 'var(--text-muted)',
+                    border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>Price in {displayCurrency} · orange bars show 24h volume</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <ComposedChart data={history} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="day" stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
-              <YAxis stroke="var(--text-muted)" tick={{ fontSize: 12 }} tickFormatter={priceFormatter} />
+              <XAxis dataKey="label" stroke="var(--text-muted)" tick={{ fontSize: 11 }} minTickGap={28} />
+              <YAxis yAxisId="price" stroke="var(--text-muted)" tick={{ fontSize: 11 }} tickFormatter={priceFormatter} domain={['auto', 'auto']} />
+              <YAxis yAxisId="vol" orientation="right" hide domain={[0, (max: number) => max * 4]} />
               <Tooltip
                 contentStyle={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-strong)' }}
                 labelStyle={{ color: 'var(--text-strong)' }}
-                itemStyle={{ color: '#F7931A' }}
-                formatter={(v: number) => [priceFormatter(v), 'Price']}
+                formatter={(v: number, name) =>
+                  name === 'volume'
+                    ? [formatUsdToDisplay(v, displayCurrency, currencyRates, true), 'Volume']
+                    : [priceFormatter(v), 'Price']
+                }
               />
+              <Bar yAxisId="vol" dataKey="volume" fill="#F7931A" opacity={0.14} />
               <Line
+                yAxisId="price"
                 type="monotone"
                 dataKey="price"
                 stroke="#F7931A"
                 strokeWidth={2.5}
-                dot={{ fill: '#F7931A', r: 4, strokeWidth: 0 }}
+                dot={history.length <= 16 ? { fill: '#F7931A', r: 3, strokeWidth: 0 } : false}
                 activeDot={{ r: 6, fill: '#F7931A' }}
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
