@@ -1,6 +1,6 @@
 import { resolveCoin, TRENDING_GECKO_IDS } from './coinMapping';
 import { logger } from './logger';
-import { fetchJson } from './apiRequest';
+import { fetchJson, ApiRequestError } from './apiRequest';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Coin {
@@ -576,11 +576,27 @@ export const api = {
     if (cached) return cached;
 
     // Omit `interval` so CoinGecko auto-granularizes per range (free-tier safe).
-    const url = `${GECKO_PROXY}/market_chart/${geckoId}?vs_currency=usd&days=${days}`;
-    const data = await fetchJson<{
-      prices: [number, number][];
-      total_volumes: [number, number][];
-      }>(url, {timeoutMs: 10_000,retries: 1,});
+    const fetchChart = (daysParam: Timeframe) =>
+      fetchJson<{
+        prices: [number, number][];
+        total_volumes: [number, number][];
+      }>(`${GECKO_PROXY}/market_chart/${geckoId}?vs_currency=usd&days=${daysParam}`,
+        { timeoutMs: 10_000, retries: 1 });
+
+    // "Max" asks CoinGecko for full history via days=max. CoinGecko's Demo/free
+    // plan caps market_chart history at the past 365 days (error 10012 / HTTP
+    // 401), so fall back to the largest window the plan allows. A paid plan
+    // serves full history from days=max with no further change here.
+    let data;
+    try {
+      data = await fetchChart(days);
+    } catch (e) {
+      if (days === 'max' && e instanceof ApiRequestError && e.status === 401) {
+        data = await fetchChart(365);
+      } else {
+        throw e;
+      }
+    }
     const volByTs = new Map<number, number>(data.total_volumes.map(([t, v]) => [t, v]));
 
     const label = (ts: number): string => {
