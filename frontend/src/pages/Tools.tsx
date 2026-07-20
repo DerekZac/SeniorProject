@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Calculator, RefreshCw, ArrowLeftRight, Receipt } from 'lucide-react';
-import { COINS, type CoinInfo } from '../lib/coinMapping';
+import { COINS, resolveCoin, type CoinInfo } from '../lib/coinMapping';
 import { api } from '../lib/api';
 
 type Tab = 'dca' | 'converter' | 'tax';
@@ -70,6 +70,8 @@ export default function Tools() {
   const [dcaFreq,      setDcaFreq]      = useState<Frequency>('monthly');
   const [dcaMonths,    setDcaMonths]    = useState('12');
   const [dcaPrice,     setDcaPrice]     = useState<number | null>(null);
+  const [dcaCoins,     setDcaCoins]     = useState(0);
+  const [dcaClamped,   setDcaClamped]   = useState(false);
   const [dcaRows,      setDcaRows]      = useState<DcaRow[]>([]);
   const [dcaLoading,   setDcaLoading]   = useState(false);
 
@@ -115,35 +117,51 @@ export default function Tools() {
 
     setDcaLoading(true);
     try {
-      const detail = await api.getCoinDetail(dcaCoin);
-      const rawPrice = parseFloat(detail.price.replace(/[$,]/g, ''));
-      setDcaPrice(rawPrice);
+      const geckoId = resolveCoin(dcaCoin)?.geckoId ?? dcaCoin.toLowerCase();
+
+      // CoinGecko's free daily history tops out around a year — clamp the
+      // look-back window and note it so the estimate stays honest.
+      const wantDays = months * 31;
+      const lookbackDays = Math.min(wantDays, 365);
+      setDcaClamped(wantDays > 365);
+
+      const daily = await api.getDailyPrices(geckoId, lookbackDays); // [ts, price][]
+      if (daily.length === 0) throw new Error('no price history');
+
+      const latest = daily[daily.length - 1][1];
+      setDcaPrice(latest);
 
       const periodsPerMonth = dcaFreq === 'weekly' ? 4 : dcaFreq === 'biweekly' ? 2 : 1;
       const totalPeriods    = months * periodsPerMonth;
       const rows: DcaRow[]  = [];
       let cumulative = 0;
+      let totalCoins = 0;
 
+      // Spread the purchases evenly across the historical window and buy at the
+      // actual price on each simulated purchase date.
       for (let i = 1; i <= totalPeriods; i++) {
+        const frac  = totalPeriods === 1 ? 0 : (i - 1) / (totalPeriods - 1);
+        const idx   = Math.min(daily.length - 1, Math.floor(frac * (daily.length - 1)));
+        const priceAt = daily[idx][1];
+        totalCoins += amount / priceAt;
         cumulative += amount;
-        const periodLabel = dcaFreq === 'monthly'
-          ? `Month ${i}`
-          : dcaFreq === 'biweekly'
-          ? `Biweek ${i}`
-          : `Week ${i}`;
+        const periodLabel = dcaFreq === 'monthly' ? `Month ${i}` : dcaFreq === 'biweekly' ? `Biweek ${i}` : `Week ${i}`;
         rows.push({ period: periodLabel, invested: amount, cumulative });
       }
+      setDcaCoins(totalCoins);
       setDcaRows(rows);
     } catch {
-      // silently fail
+      setDcaRows([]);
     } finally {
       setDcaLoading(false);
     }
   };
 
-  const totalInvested  = dcaRows.reduce((s, r) => s + r.invested, 0);
-  const coinsAccumulated = dcaPrice ? totalInvested / dcaPrice : 0;
-  const currentValue   = dcaPrice ? coinsAccumulated * dcaPrice : 0;
+  const totalInvested    = dcaRows.reduce((s, r) => s + r.invested, 0);
+  const coinsAccumulated = dcaCoins;
+  const currentValue     = dcaPrice ? dcaCoins * dcaPrice : 0;
+  const dcaProfit        = currentValue - totalInvested;
+  const dcaRoi           = totalInvested > 0 ? (dcaProfit / totalInvested) * 100 : 0;
 
   // ─── Converter Logic ─────────────────────────────────────────────────────────
 
@@ -263,7 +281,7 @@ export default function Tools() {
               Dollar-Cost Averaging Calculator
             </h2>
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.55 }}>
-              DCA means investing a fixed amount at regular intervals regardless of price. This calculator shows how much you would have invested over time.
+              DCA means investing a fixed amount at regular intervals regardless of price. This calculator replays the coin's <strong>real historical prices</strong> to show what those recurring buys would be worth today.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
@@ -328,21 +346,23 @@ export default function Tools() {
           {dcaRows.length > 0 && dcaPrice && (
             <>
               {/* Summary */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
                 {[
-                  { label: 'Total Invested',     value: `$${totalInvested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-                  { label: `${dcaCoin} Accumulated`, value: coinsAccumulated.toFixed(6) },
-                  { label: 'Current Value (est.)', value: `$${currentValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+                  { label: 'Total Invested',     value: `$${totalInvested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: 'var(--text-strong)' },
+                  { label: `${dcaCoin} Accumulated`, value: coinsAccumulated.toFixed(6), color: 'var(--text-strong)' },
+                  { label: 'Value Today',        value: `$${currentValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: 'var(--text-strong)' },
+                  { label: 'Profit / Loss',      value: `${dcaProfit >= 0 ? '+' : ''}$${Math.abs(dcaProfit).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${dcaRoi >= 0 ? '+' : ''}${dcaRoi.toFixed(1)}%)`, color: dcaProfit >= 0 ? GAIN_COLOR : LOSS_COLOR },
                 ].map(s => (
                   <div key={s.label} style={{ background: 'var(--bg-surface)', padding: '1.25rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-strong)', marginBottom: '0.375rem' }}>{s.value}</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: s.color, marginBottom: '0.375rem' }}>{s.value}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.label}</div>
                   </div>
                 ))}
               </div>
 
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                * Based on current price of {dcaCoin}: ${dcaPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. This is a simplified estimate — actual returns depend on price at each purchase date. Not financial advice.
+                * Simulated over the past {dcaMonths} month{dcaMonths === '1' ? '' : 's'} using {dcaCoin}'s real daily prices (current price ${dcaPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}).
+                {dcaClamped && ' History was capped at ~1 year on the free data tier.'} Past performance is not indicative of future results. Not financial advice.
               </p>
             </>
           )}
