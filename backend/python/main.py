@@ -95,7 +95,7 @@ def root():
 def test():
 
     response = groq.chat.completions.create(
-        model="gemma2-9b-it",
+        model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": "Say hello."}]
     )
 
@@ -216,7 +216,7 @@ Articles:
 """
 
     response = groq.chat.completions.create(
-        model="gemma2-9b-it",
+        model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}]
     )
 
