@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowUpRight, BookOpen, Store } from 'lucide-react';
 import SearchBar from '../components/SearchBar';
 import TickerStrip from '../components/TickerStrip';
+import MarketOverview from '../components/MarketOverview';
 import { api, type Coin, type NewsItem } from '../lib/api';
 import { GUIDES } from '../lib/learnData';
 import { EXCHANGES } from '../lib/exchangeData';
@@ -170,6 +171,11 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <div style={{ borderTop: '1px solid var(--border)' }} />
+
+      {/* ── Market Snapshot (global stats + top movers) ── */}
+      <MarketOverview />
 
       <div style={{ borderTop: '1px solid var(--border)' }} />
 

@@ -43,6 +43,31 @@ export interface PricePoint {
   price: number;
 }
 
+export type Timeframe = 1 | 7 | 30 | 365 | 'max';
+
+export interface ChartPoint {
+  t: number;      // unix ms
+  label: string;  // axis label for the timeframe
+  price: number;
+  volume: number;
+}
+
+export interface GlobalMarket {
+  totalMarketCapUsd: number;
+  totalVolumeUsd: number;
+  btcDominance: number;
+  ethDominance: number;
+  marketCapChange24h: number;
+}
+
+export interface Mover {
+  ticker: string;
+  name: string;
+  geckoId: string;
+  priceUsd: number;
+  change: number;
+}
+
 // ─── AI Sentiment from Python/Gemini backend ──────────────────────────────────
 
 export interface AISentiment {
@@ -446,6 +471,117 @@ export const api = {
     return points;
   },
 
+
+  /** Live USD prices for a set of tickers (used by Portfolio, Paper Trading, Alerts). */
+  async getPricesByTickers(tickers: string[]): Promise<Record<string, Coin>> {
+    const coins = await this.getWatchlistCoins(tickers);
+    const map: Record<string, Coin> = {};
+    for (const c of coins) map[c.ticker.toUpperCase()] = c;
+    return map;
+  },
+
+  /** Global market overview (total cap, volume, BTC/ETH dominance). */
+  async getGlobalMarket(): Promise<GlobalMarket | null> {
+    const key = 'global';
+    const cached = getCache<GlobalMarket>(key);
+    if (cached) return cached;
+    try {
+      const res = await fetch(`${GECKO}/global`);
+      if (!res.ok) throw new Error(`CoinGecko global HTTP ${res.status}`);
+      const { data } = await res.json();
+      const g: GlobalMarket = {
+        totalMarketCapUsd: data.total_market_cap?.usd ?? 0,
+        totalVolumeUsd: data.total_volume?.usd ?? 0,
+        btcDominance: parseFloat((data.market_cap_percentage?.btc ?? 0).toFixed(1)),
+        ethDominance: parseFloat((data.market_cap_percentage?.eth ?? 0).toFixed(1)),
+        marketCapChange24h: parseFloat((data.market_cap_change_percentage_24h_usd ?? 0).toFixed(2)),
+      };
+      setCache(key, g, TTL.prices);
+      return g;
+    } catch (e) {
+      logger.warn('api', 'Global market fetch failed', { error: String(e) });
+      return null;
+    }
+  },
+
+  /** Top gainers and losers over 24h among the top ~100 coins by market cap. */
+  async getTopMovers(): Promise<{ gainers: Mover[]; losers: Mover[] }> {
+    const key = 'movers';
+    const cached = getCache<{ gainers: Mover[]; losers: Mover[] }>(key);
+    if (cached) return cached;
+
+    const url =
+      `${GECKO}/coins/markets?vs_currency=usd&order=market_cap_desc` +
+      `&per_page=100&page=1&sparkline=false&price_change_percentage=24h`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`CoinGecko movers HTTP ${res.status}`);
+    const data: GeckoMarket[] = await res.json();
+
+    const movers: Mover[] = data
+      .filter(m => typeof m.price_change_percentage_24h === 'number')
+      .map(m => ({
+        ticker: resolveCoin(m.id)?.ticker ?? m.symbol.toUpperCase(),
+        name: m.name,
+        geckoId: m.id,
+        priceUsd: m.current_price,
+        change: parseFloat((m.price_change_percentage_24h ?? 0).toFixed(2)),
+      }));
+
+    const sorted = [...movers].sort((a, b) => b.change - a.change);
+    const result = { gainers: sorted.slice(0, 5), losers: sorted.slice(-5).reverse() };
+    setCache(key, result, TTL.prices);
+    return result;
+  },
+
+  /** Price + volume series for a timeframe. Powers the advanced chart & DCA. */
+  async getMarketChart(geckoId: string, days: Timeframe): Promise<ChartPoint[]> {
+    const key = `chart:${geckoId}:${days}`;
+    const cached = getCache<ChartPoint[]>(key);
+    if (cached) return cached;
+
+    // Omit `interval` so CoinGecko auto-granularizes per range (free-tier safe).
+    const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=${days}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`CoinGecko chart HTTP ${res.status}`);
+    const data: { prices: [number, number][]; total_volumes: [number, number][] } = await res.json();
+
+    const volByTs = new Map<number, number>(data.total_volumes.map(([t, v]) => [t, v]));
+
+    const label = (ts: number): string => {
+      const d = new Date(ts);
+      if (days === 1) return d.toLocaleTimeString('en-US', { hour: 'numeric' });
+      if (days === 7 || days === 30) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    };
+
+    // Thin dense intraday/hourly series to keep the chart smooth.
+    const raw = data.prices;
+    const step = Math.max(1, Math.ceil(raw.length / 120));
+    const points: ChartPoint[] = raw
+      .filter((_, i) => i % step === 0 || i === raw.length - 1)
+      .map(([t, price]) => ({
+        t,
+        label: label(t),
+        price: parseFloat(price.toFixed(price >= 1 ? 2 : 6)),
+        volume: volByTs.get(t) ?? 0,
+      }));
+
+    setCache(key, points, TTL.prices);
+    return points;
+  },
+
+  /** Raw daily [timestamp, price] pairs over the past N days (used by the DCA sim). */
+  async getDailyPrices(geckoId: string, days: number): Promise<[number, number][]> {
+    const key = `daily:${geckoId}:${days}`;
+    const cached = getCache<[number, number][]>(key);
+    if (cached) return cached;
+    const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`CoinGecko daily HTTP ${res.status}`);
+    const data: { prices: [number, number][] } = await res.json();
+    setCache(key, data.prices, TTL.prices);
+    return data.prices;
+  },
 
   async getCoinSentiment(query: string): Promise<CoinSentimentResult> {
     const info = resolveCoin(query);

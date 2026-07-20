@@ -4,14 +4,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, type Coin } from '../lib/api';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useSavedNews } from '../context/SavedNewsContext';
 import { getUserCreatedAt } from '../lib/auth';
-import { Settings, Sun, Moon, DollarSign } from 'lucide-react';
+import { Settings, Sun, Moon, DollarSign, Bookmark } from 'lucide-react';
 import { useTheme } from '../lib/useTheme';
 import { DISPLAY_CURRENCIES } from '../lib/displayCurrency';
 import { formatUsdToDisplay } from '../lib/displayCurrency';
 
 export default function Profile() {
   const { watchlist, toggleWatchlist, searchHistory, clearSearchHistory, displayCurrency, setDisplayCurrency, currencyRates } = useApp();
+  const { saved, remove } = useSavedNews();
   const { session, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
@@ -132,6 +134,35 @@ export default function Profile() {
                     <X size={14} />
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Saved articles */}
+      <div className="rounded-xl p-6" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Bookmark size={15} style={{ color: '#F7931A' }} />
+            <h2 className="font-semibold" style={{ color: 'var(--text-strong)' }}>Saved Articles</h2>
+          </div>
+          <Link to="/news" className="text-xs transition-colors hover:text-[#F7931A]" style={{ color: 'var(--text-muted)' }}>
+            Browse news →
+          </Link>
+        </div>
+        {saved.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No saved articles yet. Bookmark headlines on the News page to read them later.</p>
+        ) : (
+          <div className="flex flex-col gap-0">
+            {saved.slice(0, 8).map(s => (
+              <div key={s.url} className="flex items-center justify-between gap-3 py-3 border-b last:border-0" style={{ borderColor: 'var(--border)' }}>
+                <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-sm line-clamp-1 transition-colors hover:text-[#F7931A]" style={{ color: 'var(--text)', minWidth: 0, flex: 1 }}>
+                  <span className="section-label" style={{ marginRight: '0.5rem' }}>{s.source}</span>{s.title}
+                </a>
+                <button onClick={() => remove(s.url)} className="p-1 transition-colors hover:text-[#FF3355]" style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }} title="Remove">
+                  <X size={14} />
+                </button>
               </div>
             ))}
           </div>
