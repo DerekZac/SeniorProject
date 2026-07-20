@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
 from newspaper import Article
+from tavily import TavilyClient
 
 # ------------------------------------------------------------------------------
 # Load environment variables
@@ -28,6 +29,10 @@ app.add_middleware(
 
 groq = Groq(
     api_key=os.getenv("GROQ_API_KEY")
+)
+
+tavily = TavilyClient(
+    api_key=os.getenv("TAVILY_API_KEY")
 )
 
 # ------------------------------------------------------------------------------
@@ -128,6 +133,42 @@ Source:
 Article:
 {body[:6000]}
 """
+
+    if len(combined_articles) < 500:
+
+        print(f"RSS articles insufficient ({len(combined_articles)} chars), falling back to Tavily")
+
+        try:
+            search = tavily.search(
+                query=f"{request.coin} {request.ticker} crypto news",
+                search_depth="advanced",
+                max_results=5,
+                include_raw_content=True
+            )
+
+            for result in search.get("results", []):
+
+                body = result.get("raw_content") or result.get("content") or ""
+
+                if len(body) < 100:
+                    continue
+
+                combined_articles += f"""
+
+======================================================
+Title:
+{result.get("title", "")}
+
+Source:
+{result.get("url", "")}
+
+Article:
+{body[:6000]}
+"""
+
+        except Exception as e:
+            print("Tavily search failed")
+            print(e)
 
     if combined_articles == "":
         raise HTTPException(
