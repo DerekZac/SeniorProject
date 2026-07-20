@@ -95,7 +95,7 @@ def root():
 def test():
 
     response = gemini.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-1.5-flash",
         contents="Say hello."
     )
 
@@ -216,7 +216,7 @@ Articles:
 """
 
     response = gemini.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-1.5-flash",
         contents=prompt
     )
 
