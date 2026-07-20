@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Star } from 'lucide-react';
+import { Star, Download } from 'lucide-react';
 import CoinCard from '../components/CoinCard';
 import { api, type Coin } from '../lib/api';
 import { useApp } from '../context/AppContext';
+import { downloadCsv } from '../lib/csv';
 
 export default function Watchlist() {
   const { watchlist, toggleWatchlist, isWatchlisted } = useApp();
   const [coins, setCoins]     = useState<Coin[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const exportCsv = () => downloadCsv('crypton-watchlist', coins.map(c => ({
+    Ticker: c.ticker, Name: c.name, PriceUSD: c.priceUsd.toFixed(4), Change24hPct: c.change,
+  })));
 
   useEffect(() => {
     if (watchlist.length === 0) { setCoins([]); return; }
@@ -31,6 +36,11 @@ export default function Watchlist() {
           <span className="section-label">
             {watchlist.length} coin{watchlist.length !== 1 ? 's' : ''} tracked
           </span>
+          {coins.length > 0 && (
+            <button onClick={exportCsv} className="section-label" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+              <Download size={13} /> Export CSV
+            </button>
+          )}
         </div>
       </div>
 
