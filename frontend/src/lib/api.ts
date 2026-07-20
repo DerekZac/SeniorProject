@@ -1,6 +1,6 @@
 import { resolveCoin, TRENDING_GECKO_IDS } from './coinMapping';
 import { logger } from './logger';
-
+import { fetchJson } from './apiRequest';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Coin {
@@ -134,8 +134,14 @@ async function fetchAISentiment(
   if (cached) return cached;
 
   try {
-    const res = await fetch(`${JAVA_URL}/api/sentiment/${ticker}`);
-    const data = await res.json();
+    const data = await fetchJson<{
+      success: boolean;
+      cached: boolean;
+      data: AISentiment;
+    }>(`${JAVA_URL}/api/sentiment/${ticker}`, {
+      timeoutMs: 10_000,
+      retries: 1,
+    });
     if (data.success && data.cached) {
       const d = data.data;
       const ai: AISentiment = {
@@ -161,21 +167,31 @@ async function fetchAISentiment(
 
   try {
     logger.debug('api', `GET AI sentiment for ${coin}`);
-    const res = await fetch(`${AI_URL}/classify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coin, ticker, articles: articles.slice(0, 5) }),
-    });
-
-    if (!res.ok) return null;
-    const result: AISentiment = await res.json();
+    const result = await fetchJson<AISentiment>(`${AI_URL}/classify`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    coin,
+    ticker,
+    articles: articles.slice(0, 5),
+  }),
+  timeoutMs: 30_000,
+  retries: 0,
+  dedupe: false,
+});
 
     try {
-      await fetch(`${JAVA_URL}/api/sentiment/${ticker}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...result, coinName: coin }),
-      });
+     await fetchJson<{ success: boolean }>(
+  `${JAVA_URL}/api/sentiment/${ticker}`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...result, coinName: coin }),
+    timeoutMs: 10_000,
+    retries: 0,
+    dedupe: false,
+  }
+);
       logger.debug('api', `AI sentiment saved to DB for ${ticker}`);
     } catch (e) {
       logger.warn('api', 'Failed to save AI sentiment to DB', { error: String(e) });
@@ -201,11 +217,19 @@ async function fetchRSSNews(): Promise<NewsItem[]> {
 
   const results = await Promise.allSettled(
     RSS_SOURCES.map(async ({ feed, source }) => {
-      const res = await fetch(RSS2JSON + encodeURIComponent(feed));
-      if (!res.ok) return [] as NewsItem[];
-      const json = await res.json();
-      if (json.status !== 'ok') return [] as NewsItem[];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json = await fetchJson<{
+      status: string;
+      items?: Array<{
+      title: string;
+      pubDate?: string;
+      link: string;
+  }>;
+}>(RSS2JSON + encodeURIComponent(feed), {
+  timeoutMs: 10_000,
+  retries: 1,
+});
+
+if (json.status !== 'ok') return [] as NewsItem[];
       return (json.items ?? []).slice(0, 6).map((item: any) => ({
         title: item.title as string,
         source,
@@ -312,9 +336,10 @@ async function fetchGeckoMarkets(ids: string[]): Promise<GeckoMarket[]> {
     `&order=market_cap_desc&per_page=${ids.length}&page=1&sparkline=false`;
 
   logger.debug('api', 'GET CoinGecko markets');
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
-  const data: GeckoMarket[] = await res.json();
+  const data = await fetchJson<GeckoMarket[]>(url, {
+  timeoutMs: 10_000,
+  retries: 1,
+});
   setCache(key, data, TTL.prices);
   return data;
 }
@@ -456,10 +481,10 @@ export const api = {
 
     const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=7&interval=daily`;
     logger.debug('api', `GET price history for ${geckoId}`);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`CoinGecko price history HTTP ${res.status}`);
-
-    const data: { prices: [number, number][] } = await res.json();
+    const data = await fetchJson<{ prices: [number, number][] }>(url, {
+      timeoutMs: 10_000,
+      retries: 1,
+});
     const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     const points: PricePoint[] = data.prices.map(([ts, price]) => ({
@@ -486,9 +511,17 @@ export const api = {
     const cached = getCache<GlobalMarket>(key);
     if (cached) return cached;
     try {
-      const res = await fetch(`${GECKO}/global`);
-      if (!res.ok) throw new Error(`CoinGecko global HTTP ${res.status}`);
-      const { data } = await res.json();
+      const { data } = await fetchJson<{
+  data: {
+    total_market_cap?: { usd?: number };
+    total_volume?: { usd?: number };
+    market_cap_percentage?: { btc?: number; eth?: number };
+    market_cap_change_percentage_24h_usd?: number;
+    };
+      }>(`${GECKO}/global`, {
+        timeoutMs: 10_000,
+        retries: 1,
+    });
       const g: GlobalMarket = {
         totalMarketCapUsd: data.total_market_cap?.usd ?? 0,
         totalVolumeUsd: data.total_volume?.usd ?? 0,
@@ -513,10 +546,10 @@ export const api = {
     const url =
       `${GECKO}/coins/markets?vs_currency=usd&order=market_cap_desc` +
       `&per_page=100&page=1&sparkline=false&price_change_percentage=24h`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`CoinGecko movers HTTP ${res.status}`);
-    const data: GeckoMarket[] = await res.json();
-
+    const data = await fetchJson<GeckoMarket[]>(url, {
+      timeoutMs: 10_000,
+      retries: 1,
+});
     const movers: Mover[] = data
       .filter(m => typeof m.price_change_percentage_24h === 'number')
       .map(m => ({
@@ -541,10 +574,10 @@ export const api = {
 
     // Omit `interval` so CoinGecko auto-granularizes per range (free-tier safe).
     const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=${days}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`CoinGecko chart HTTP ${res.status}`);
-    const data: { prices: [number, number][]; total_volumes: [number, number][] } = await res.json();
-
+    const data = await fetchJson<{
+      prices: [number, number][];
+      total_volumes: [number, number][];
+      }>(url, {timeoutMs: 10_000,retries: 1,});
     const volByTs = new Map<number, number>(data.total_volumes.map(([t, v]) => [t, v]));
 
     const label = (ts: number): string => {
@@ -576,9 +609,8 @@ export const api = {
     const cached = getCache<[number, number][]>(key);
     if (cached) return cached;
     const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`CoinGecko daily HTTP ${res.status}`);
-    const data: { prices: [number, number][] } = await res.json();
+    const data = await fetchJson<{ prices: [number, number][] }>(url,
+       {timeoutMs: 10_000, retries: 1,});
     setCache(key, data.prices, TTL.prices);
     return data.prices;
   },
