@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { TrendingUp, BookOpen, Scale, Building2, Calculator, Newspaper, Star, User, LogIn, LogOut, Menu, X } from 'lucide-react';
+import { TrendingUp, BookOpen, Scale, Building2, Calculator, Newspaper, Star, User, LogIn, LogOut, Menu, X, Wallet, LineChart, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_LINKS = [
-  { path: '/',             label: 'Home',        icon: TrendingUp },
-  { path: '/learn',        label: 'Learn',       icon: BookOpen },
-  { path: '/compare',      label: 'Compare',     icon: TrendingUp },
-  { path: '/regulations',  label: 'Regulations', icon: Scale },
-  { path: '/exchanges',    label: 'Exchanges',   icon: Building2 },
-  { path: '/tools',        label: 'Tools',       icon: Calculator },
-  { path: '/news',         label: 'News',        icon: Newspaper },
-  { path: '/watchlist',    label: 'Watchlist',   icon: Star },
+  { path: '/',              label: 'Home',      icon: TrendingUp },
+  { path: '/compare',       label: 'Compare',   icon: TrendingUp },
+  { path: '/portfolio',     label: 'Portfolio', icon: Wallet },
+  { path: '/paper-trading', label: 'Trade',     icon: LineChart },
+  { path: '/alerts',        label: 'Alerts',    icon: Bell },
+  { path: '/tools',         label: 'Tools',     icon: Calculator },
+  { path: '/news',          label: 'News',      icon: Newspaper },
+  { path: '/learn',         label: 'Learn',     icon: BookOpen },
+  { path: '/exchanges',     label: 'Exchanges', icon: Building2 },
+  { path: '/regulations',   label: 'Regs',      icon: Scale },
+  { path: '/watchlist',     label: 'Watchlist', icon: Star },
 ];
 
 function isActive(pathname: string, path: string) {

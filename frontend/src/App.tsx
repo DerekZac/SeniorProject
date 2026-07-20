@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AppProvider } from "./context/AppContext";
 import { AuthProvider } from "./context/AuthContext";
+import { FeatureProviders } from "./context/FeatureProviders";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
@@ -8,6 +9,9 @@ import Results from "./pages/Results";
 import CoinPage from "./pages/CoinPage";
 import Compare from "./pages/Compare";
 import Watchlist from "./pages/Watchlist";
+import Portfolio from "./pages/Portfolio";
+import PaperTrading from "./pages/PaperTrading";
+import Alerts from "./pages/Alerts";
 import News from "./pages/News";
 import Learn from "./pages/Learn";
 import Regulations from "./pages/Regulations";
@@ -25,34 +29,39 @@ export default function App() {
   return (
     <AuthProvider>
       <AppProvider>
-        <Router basename={import.meta.env.BASE_URL}>
-          <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
-            <Navbar />
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<Home />} />
-              <Route path="/results/:coin" element={<Results />} />
-              <Route path="/coin/:coin" element={<CoinPage />} />
-              <Route path="/compare" element={<Compare />} />
-              <Route path="/news" element={<News />} />
-              <Route path="/learn" element={<Learn />} />
-              <Route path="/regulations" element={<Regulations />} />
-              <Route path="/exchanges" element={<Exchanges />} />
-              <Route path="/tools" element={<Tools />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
+        <FeatureProviders>
+          <Router basename={import.meta.env.BASE_URL}>
+            <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+              <Navbar />
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<Home />} />
+                <Route path="/results/:coin" element={<Results />} />
+                <Route path="/coin/:coin" element={<CoinPage />} />
+                <Route path="/compare" element={<Compare />} />
+                <Route path="/portfolio" element={<Portfolio />} />
+                <Route path="/paper-trading" element={<PaperTrading />} />
+                <Route path="/alerts" element={<Alerts />} />
+                <Route path="/news" element={<News />} />
+                <Route path="/learn" element={<Learn />} />
+                <Route path="/regulations" element={<Regulations />} />
+                <Route path="/exchanges" element={<Exchanges />} />
+                <Route path="/tools" element={<Tools />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
 
-              {/* Protected routes — require authentication */}
-              <Route path="/watchlist" element={
-                <ProtectedRoute><Watchlist /></ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute><Profile /></ProtectedRoute>
-              } />
-            </Routes>
-          </div>
-        </Router>
+                {/* Protected routes — require authentication */}
+                <Route path="/watchlist" element={
+                  <ProtectedRoute><Watchlist /></ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute><Profile /></ProtectedRoute>
+                } />
+              </Routes>
+            </div>
+          </Router>
+        </FeatureProviders>
       </AppProvider>
     </AuthProvider>
   );
