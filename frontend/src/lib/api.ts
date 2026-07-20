@@ -310,6 +310,9 @@ function formatLargeNumber(n: number): string {
 // ─── CoinGecko ───────────────────────────────────────────────────────────────
 
 const GECKO = 'https://api.coingecko.com/api/v3';
+// Server-side proxy on the Java backend that forwards to CoinGecko, avoiding
+// browser CORS errors on the GitHub Pages site.
+const GECKO_PROXY = `${JAVA_URL}/api/coingecko`;
 
 interface GeckoMarket {
   id: string;
@@ -331,7 +334,7 @@ async function fetchGeckoMarkets(ids: string[]): Promise<GeckoMarket[]> {
   if (cached) return cached;
 
   const url =
-    `${GECKO}/coins/markets?vs_currency=usd` +
+    `${GECKO_PROXY}/markets?vs_currency=usd` +
     `&ids=${ids.join(',')}` +
     `&order=market_cap_desc&per_page=${ids.length}&page=1&sparkline=false`;
 
@@ -479,7 +482,7 @@ export const api = {
     const cached = getCache<PricePoint[]>(cacheKey);
     if (cached) return cached;
 
-    const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=7&interval=daily`;
+    const url = `${GECKO_PROXY}/market_chart/${geckoId}?vs_currency=usd&days=7&interval=daily`;
     logger.debug('api', `GET price history for ${geckoId}`);
     const data = await fetchJson<{ prices: [number, number][] }>(url, {
       timeoutMs: 10_000,
@@ -544,7 +547,7 @@ export const api = {
     if (cached) return cached;
 
     const url =
-      `${GECKO}/coins/markets?vs_currency=usd&order=market_cap_desc` +
+      `${GECKO_PROXY}/markets?vs_currency=usd&order=market_cap_desc` +
       `&per_page=100&page=1&sparkline=false&price_change_percentage=24h`;
     const data = await fetchJson<GeckoMarket[]>(url, {
       timeoutMs: 10_000,
@@ -573,7 +576,7 @@ export const api = {
     if (cached) return cached;
 
     // Omit `interval` so CoinGecko auto-granularizes per range (free-tier safe).
-    const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=${days}`;
+    const url = `${GECKO_PROXY}/market_chart/${geckoId}?vs_currency=usd&days=${days}`;
     const data = await fetchJson<{
       prices: [number, number][];
       total_volumes: [number, number][];
@@ -608,7 +611,7 @@ export const api = {
     const key = `daily:${geckoId}:${days}`;
     const cached = getCache<[number, number][]>(key);
     if (cached) return cached;
-    const url = `${GECKO}/coins/${geckoId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
+    const url = `${GECKO_PROXY}/market_chart/${geckoId}?vs_currency=usd&days=${days}&interval=daily`;
     const data = await fetchJson<{ prices: [number, number][] }>(url,
        {timeoutMs: 10_000, retries: 1,});
     setCache(key, data.prices, TTL.prices);
