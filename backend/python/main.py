@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from google import genai
+from groq import Groq
 from newspaper import Article
 
 # ------------------------------------------------------------------------------
@@ -26,8 +26,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-gemini = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
+groq = Groq(
+    api_key=os.getenv("GROQ_API_KEY")
 )
 
 # ------------------------------------------------------------------------------
@@ -94,12 +94,12 @@ def root():
 @app.get("/test")
 def test():
 
-    response = gemini.models.generate_content(
-        model="gemini-2.0-flash",
-        contents="Say hello."
+    response = groq.chat.completions.create(
+        model="gemma2-9b-it",
+        messages=[{"role": "user", "content": "Say hello."}]
     )
 
-    return {"response": response.text}
+    return {"response": response.choices[0].message.content}
 
 
 @app.post("/classify")
@@ -215,12 +215,12 @@ Articles:
 {combined_articles}
 """
 
-    response = gemini.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt
+    response = groq.chat.completions.create(
+        model="gemma2-9b-it",
+        messages=[{"role": "user", "content": prompt}]
     )
 
-    raw = clean_json(response.text)
+    raw = clean_json(response.choices[0].message.content)
 
     try:
         result = json.loads(raw)
@@ -229,7 +229,7 @@ Articles:
 
         raise HTTPException(
             status_code=500,
-            detail=f"Gemini returned invalid JSON:\n\n{raw}"
+            detail=f"Groq returned invalid JSON:\n\n{raw}"
         )
 
     return result
