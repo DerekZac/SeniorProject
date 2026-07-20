@@ -3,8 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Crypton — Reddit Crypto Sentiment Analyzer</title>
-    <meta name="description" content="Analyze Reddit crypto sentiment in real-time. Get Bullish, Bearish, or Mixed verdicts for any cryptocurrency." />
+    <title>Crypton — AI Crypto Intelligence Hub</title>
+    <meta name="description" content="Live crypto prices, AI market sentiment, a portfolio tracker, paper trading and price alerts. Track and analyze any cryptocurrency in one place." />
+    <!--
+      GitHub Pages SPA restore: 404.html redirects deep links to
+      "/<repo>/?p=/path&q=query"; this decodes that back into a real URL so
+      refreshing or sharing a link to /portfolio, /coin/bitcoin, etc. works.
+    -->
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var p = params.get('p');
+        if (p !== null) {
+          var q = params.get('q');
+          var base = window.location.pathname.replace(/\/$/, '');
+          var path = base + p.replace(/~and~/g, '&');
+          var query = q ? '?' + q.replace(/~and~/g, '&') : '';
+          window.history.replaceState(null, '', path + query + window.location.hash);
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
