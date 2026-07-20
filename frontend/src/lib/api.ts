@@ -281,6 +281,10 @@ const RSS_SOURCES = [
   { feed: 'https://blockworks.co/feed',              source: 'Blockworks' },
   { feed: 'https://bitcoinmagazine.com/.rss/full/',  source: 'Bitcoin Magazine' },
   { feed: 'https://cryptoslate.com/feed/',           source: 'CryptoSlate' },
+  { feed: 'https://www.newsBTC.com/feed/',           source: 'NewsBTC' },
+  { feed: 'https://u.today/rss',                     source: 'U.Today' },
+  { feed: 'https://cryptopotato.com/feed/',          source: 'CryptoPotato' },
+  { feed: 'https://bitcoinist.com/feed/',            source: 'Bitcoinist' },
 ];
 const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
