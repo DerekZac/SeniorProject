@@ -134,9 +134,9 @@ Article:
 {body[:6000]}
 """
 
-    if len(combined_articles) < 500:
+    if len(combined_articles) < 500 or (request.coin.lower() not in combined_articles.lower() and request.ticker.lower() not in combined_articles.lower()):
 
-        print(f"RSS articles insufficient ({len(combined_articles)} chars), falling back to Tavily")
+        print(f"RSS articles insufficient for {request.coin} ({len(combined_articles)} chars), falling back to Tavily")
 
         try:
             search = tavily.search(
