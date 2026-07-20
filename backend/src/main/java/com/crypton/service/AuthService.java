@@ -182,11 +182,38 @@ public class AuthService {
 
         User user = userOpt.get();
 
-        if (!mfaService.verifyCode(user.getMfaSecret(), mfaToken)) {
+        // Brute-force protection: the MFA code is only 6 digits, so throttle
+        // attempts with the same lockout used for passwords in step 1.
+        if (user.getLockedUntil() != null && LocalDateTime.now().isBefore(user.getLockedUntil())) {
+            long minutesLeft = java.time.Duration.between(LocalDateTime.now(), user.getLockedUntil()).toMinutes() + 1;
             response.put("success", false);
-            response.put("message", "Invalid authenticator code. Check your app and try again.");
+            response.put("message", "Account locked. Try again in " + minutesLeft + " minute(s).");
             return response;
         }
+
+        if (!mfaService.verifyCode(user.getMfaSecret(), mfaToken)) {
+            user.setFailedAttempts(user.getFailedAttempts() + 1);
+            if (user.getFailedAttempts() >= MAX_ATTEMPTS) {
+                user.setLockedUntil(LocalDateTime.now().plusMinutes(LOCKOUT_MINS));
+                user.setFailedAttempts(0);
+                userRepository.save(user);
+                response.put("success", false);
+                response.put("message", "Account locked for 15 minutes due to too many invalid codes.");
+                return response;
+            }
+            userRepository.save(user);
+            int remaining = MAX_ATTEMPTS - user.getFailedAttempts();
+            response.put("success", false);
+            response.put("message", remaining > 0
+                ? "Invalid authenticator code. " + remaining + " attempt(s) remaining."
+                : "Invalid authenticator code. Check your app and try again.");
+            return response;
+        }
+
+        // Reset the counter on a successful code.
+        user.setFailedAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
 
         response.put("success", true);
         response.put("message", "Login successful");
@@ -221,10 +248,28 @@ public class AuthService {
             return response;
         }
 
-        if (user.isMfaEnabled() && !mfaService.verifyCode(user.getMfaSecret(), mfaToken)) {
-            response.put("success", false);
-            response.put("message", "Invalid authenticator code");
-            return response;
+        // Reset requires a valid MFA code — throttle it like login step 2 so the
+        // 6-digit code can't be brute-forced into an account takeover.
+        if (user.isMfaEnabled()) {
+            if (user.getLockedUntil() != null && LocalDateTime.now().isBefore(user.getLockedUntil())) {
+                long minutesLeft = java.time.Duration.between(LocalDateTime.now(), user.getLockedUntil()).toMinutes() + 1;
+                response.put("success", false);
+                response.put("message", "Account locked. Try again in " + minutesLeft + " minute(s).");
+                return response;
+            }
+            if (!mfaService.verifyCode(user.getMfaSecret(), mfaToken)) {
+                user.setFailedAttempts(user.getFailedAttempts() + 1);
+                if (user.getFailedAttempts() >= MAX_ATTEMPTS) {
+                    user.setLockedUntil(LocalDateTime.now().plusMinutes(LOCKOUT_MINS));
+                    user.setFailedAttempts(0);
+                }
+                userRepository.save(user);
+                response.put("success", false);
+                response.put("message", "Invalid authenticator code");
+                return response;
+            }
+            user.setFailedAttempts(0);
+            user.setLockedUntil(null);
         }
 
         String salt = generateSalt();
