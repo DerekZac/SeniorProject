@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowUpRight, BookOpen, Store } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Store, Sparkles, Loader2, RotateCcw } from 'lucide-react';
 import SearchBar from '../components/SearchBar';
 import TickerStrip from '../components/TickerStrip';
 import MarketOverview from '../components/MarketOverview';
@@ -107,6 +107,292 @@ function NewsRow({ item }: { item: NewsItem }) {
 
 const FEATURED_GUIDES = GUIDES.slice(0, 3);
 const FEATURED_EXCHANGES = EXCHANGES.filter(e => e.tag === 'popular').slice(0, 3);
+
+// ─── Crypto Personality Quiz ─────────────────────────────────────────────────
+
+const QUIZ_API = import.meta.env.VITE_PYTHON_API_URL || 'https://merry-stillness-production-b20d.up.railway.app';
+
+const QUIZ_ACCENT = '#4B6BFB';
+
+const QUIZ_QUESTIONS: { question: string; options: string[] }[] = [
+  {
+    question: 'Your portfolio drops 30% overnight. What do you do?',
+    options: ['Buy more at a discount', 'Hold and wait it out', 'Sell some to limit losses', 'Sell everything'],
+  },
+  {
+    question: 'How long do you plan to hold your investments?',
+    options: ['Days or weeks', 'A few months', 'Several years', 'A decade or more'],
+  },
+  {
+    question: 'How much research do you do before investing?',
+    options: ['Read the whitepaper and on-chain data', 'Skim news and analysis', 'Ask friends or follow influencers', 'Go with my gut'],
+  },
+  {
+    question: 'Which idea appeals to you most?',
+    options: ['A digital store of value', 'A platform for building apps', 'Fast, cheap global payments', 'A strong community and culture'],
+  },
+  {
+    question: 'How do you feel about price swings?',
+    options: ['They are exciting opportunities', 'Manageable if the thesis holds', 'Stressful but tolerable', 'I would rather avoid them'],
+  },
+  {
+    question: 'How would you spread your money?',
+    options: ['One high-conviction bet', 'Two or three core picks', 'A diversified basket of five to ten', 'A little bit of everything'],
+  },
+  {
+    question: 'What matters most when picking a project?',
+    options: ['A long, proven track record', 'The underlying technology', 'Low fees and fast transactions', 'An active community'],
+  },
+  {
+    question: 'How often do you check prices?',
+    options: ['Constantly throughout the day', 'Once a day', 'Once a week', 'Rarely — I set it and forget it'],
+  },
+  {
+    question: 'A new coin is trending on social media. Your move?',
+    options: ['Buy early before the crowd', 'Research it thoroughly first', 'Wait until it proves itself', 'Ignore it entirely'],
+  },
+  {
+    question: 'What is your main goal with crypto?',
+    options: ['Preserve wealth long term', 'Steady, reliable growth', 'Life-changing gains', 'Learn and experiment'],
+  },
+];
+
+type QuizResult = {
+  personality_type: string;
+  description: string;
+  coin_recommendations: { coin: string; reason: string }[];
+};
+
+function PersonalityQuiz() {
+  const [stage, setStage]     = useState<'intro' | 'active' | 'loading' | 'error' | 'done'>('intro');
+  const [current, setCurrent] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [result, setResult]   = useState<QuizResult | null>(null);
+  const [error, setError]     = useState<string | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: '12px',
+    padding: '2rem',
+  };
+
+  async function submit(finalAnswers: string[]) {
+    setStage('loading');
+    setError(null);
+
+    try {
+      const res = await fetch(`${QUIZ_API}/personality-quiz`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          answers: finalAnswers.map((answer, i) => ({
+            question: QUIZ_QUESTIONS[i].question,
+            answer,
+          })),
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+
+      setResult(await res.json() as QuizResult);
+      setStage('done');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setStage('error');
+    }
+  }
+
+  function choose(option: string) {
+    const next = [...answers.slice(0, current), option];
+    setAnswers(next);
+    setHovered(null);
+
+    if (current + 1 < QUIZ_QUESTIONS.length) {
+      setCurrent(current + 1);
+    } else {
+      submit(next);
+    }
+  }
+
+  function reset() {
+    setStage('intro');
+    setCurrent(0);
+    setAnswers([]);
+    setResult(null);
+    setError(null);
+    setHovered(null);
+  }
+
+  // ── Intro ──
+  if (stage === 'intro') {
+    return (
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
+          <Sparkles size={15} style={{ color: QUIZ_ACCENT, flexShrink: 0 }} />
+          <span className="section-label" style={{ color: QUIZ_ACCENT }}>10 questions · about a minute</span>
+        </div>
+        <h3 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--text-strong)', marginBottom: '0.75rem', letterSpacing: '-0.01em' }}>
+          What's Your Crypto Personality?
+        </h3>
+        <p style={{ fontSize: '0.9375rem', color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: '60ch', marginBottom: '1.75rem' }}>
+          Answer a few quick questions about how you think about risk, research, and time horizon — and we'll match you with an investor profile plus three coins that suit your style.
+        </p>
+        <button
+          onClick={() => setStage('active')}
+          style={{ background: QUIZ_ACCENT, color: '#FFFFFF', border: 'none', borderRadius: '8px', padding: '0.75rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', transition: 'opacity 0.15s ease' }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+        >
+          Take the Quiz
+        </button>
+      </div>
+    );
+  }
+
+  // ── Loading ──
+  if (stage === 'loading') {
+    return (
+      <div style={{ ...cardStyle, textAlign: 'center', padding: '4rem 2rem' }}>
+        <Loader2 size={22} style={{ color: QUIZ_ACCENT, margin: '0 auto 1rem', display: 'block' }} className="animate-spin" />
+        <p style={{ fontSize: '0.9375rem', color: 'var(--text-strong)', marginBottom: '0.375rem' }}>Analyzing your answers…</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>This usually takes a few seconds.</p>
+      </div>
+    );
+  }
+
+  // ── Error ──
+  if (stage === 'error') {
+    return (
+      <div style={cardStyle}>
+        <p style={{ fontSize: '0.9375rem', color: 'var(--text-strong)', marginBottom: '0.5rem' }}>We couldn't build your profile.</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>{error}</p>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            onClick={() => submit(answers)}
+            style={{ background: QUIZ_ACCENT, color: '#FFFFFF', border: 'none', borderRadius: '8px', padding: '0.625rem 1.25rem', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Try again
+          </button>
+          <button
+            onClick={reset}
+            style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.625rem 1.25rem', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+          >
+            Start over
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Result ──
+  if (stage === 'done' && result) {
+    return (
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
+          <Sparkles size={15} style={{ color: QUIZ_ACCENT, flexShrink: 0 }} />
+          <span className="section-label" style={{ color: QUIZ_ACCENT }}>Your profile</span>
+        </div>
+
+        <h3 style={{ fontSize: 'clamp(1.375rem, 3vw, 1.875rem)', fontWeight: 700, color: 'var(--text-strong)', marginBottom: '0.75rem', letterSpacing: '-0.02em' }}>
+          {result.personality_type}
+        </h3>
+        <p style={{ fontSize: '0.9375rem', color: 'var(--text)', lineHeight: 1.7, maxWidth: '62ch', paddingLeft: '1rem', borderLeft: `2px solid ${QUIZ_ACCENT}` }}>
+          {result.description}
+        </p>
+
+        {result.coin_recommendations?.length > 0 && (
+          <>
+            <p className="section-label" style={{ margin: '2rem 0 1rem' }}>Coins that suit you</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {result.coin_recommendations.map(rec => (
+                <div
+                  key={rec.coin}
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem' }}
+                >
+                  <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-strong)', marginBottom: '0.5rem' }}>
+                    {rec.coin}
+                  </p>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                    {rec.reason}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.75rem' }}>
+          <button
+            onClick={reset}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.625rem 1.25rem', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}
+          >
+            <RotateCcw size={13} /> Retake quiz
+          </button>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            For education only — not financial advice.
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Active question ──
+  const q = QUIZ_QUESTIONS[current];
+  const progress = ((current + 1) / QUIZ_QUESTIONS.length) * 100;
+
+  return (
+    <div style={cardStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+        <span className="section-label" style={{ color: QUIZ_ACCENT }}>
+          Question {current + 1} of {QUIZ_QUESTIONS.length}
+        </span>
+        {current > 0 && (
+          <button
+            onClick={() => { setCurrent(current - 1); setHovered(null); }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.8125rem', cursor: 'pointer', padding: 0 }}
+          >
+            ← Back
+          </button>
+        )}
+      </div>
+
+      <div style={{ height: '2px', background: 'var(--border)', borderRadius: '2px', marginBottom: '1.75rem', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${progress}%`, background: QUIZ_ACCENT, transition: 'width 0.25s ease' }} />
+      </div>
+
+      <h3 style={{ fontSize: '1.1875rem', fontWeight: 700, color: 'var(--text-strong)', marginBottom: '1.5rem', lineHeight: 1.35, letterSpacing: '-0.01em' }}>
+        {q.question}
+      </h3>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+        {q.options.map((option, i) => (
+          <button
+            key={option}
+            onClick={() => choose(option)}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              textAlign: 'left',
+              width: '100%',
+              background: hovered === i ? 'rgba(75,107,251,0.08)' : 'var(--bg)',
+              border: `1px solid ${hovered === i ? QUIZ_ACCENT : 'var(--border)'}`,
+              borderRadius: '12px',
+              padding: '0.9375rem 1.125rem',
+              fontSize: '0.9375rem',
+              color: 'var(--text-strong)',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease, border-color 0.15s ease',
+            }}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const [coins, setCoins]               = useState<Coin[]>([]);
@@ -314,6 +600,16 @@ export default function Home() {
               </a>
             ))}
           </div>
+        </div>
+      </section>
+
+      <div style={{ borderTop: '1px solid var(--border)' }} />
+
+      {/* ── Discover Your Style ─────────────────── */}
+      <section style={{ padding: '4.5rem 0' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1.5rem' }}>
+          <SectionRule label="Discover Your Style" />
+          <PersonalityQuiz />
         </div>
       </section>
 

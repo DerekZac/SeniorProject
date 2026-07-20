@@ -51,6 +51,32 @@ class CoinRequest(BaseModel):
     articles: List[NewsArticle]
 
 
+class QuizAnswer(BaseModel):
+    question: str
+    answer: str
+
+
+class QuizRequest(BaseModel):
+    answers: List[QuizAnswer]
+
+
+ALLOWED_COINS = [
+    "Bitcoin",
+    "Ethereum",
+    "Solana",
+    "XRP",
+    "Dogecoin",
+    "Cardano",
+    "Avalanche",
+    "Chainlink",
+    "Polkadot",
+    "Litecoin",
+    "Binance Coin",
+    "Shiba Inu",
+    "Uniswap",
+]
+
+
 # ------------------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------------------
@@ -274,6 +300,113 @@ Articles:
         )
 
     return result
+
+
+@app.post("/personality-quiz")
+def personality_quiz(request: QuizRequest):
+
+    if not request.answers:
+        raise HTTPException(
+            status_code=400,
+            detail="No answers provided."
+        )
+
+    formatted_answers = ""
+
+    for i, item in enumerate(request.answers, start=1):
+        formatted_answers += f"""
+{i}. {item.question}
+   Answer: {item.answer}
+"""
+
+    allowed = "\n".join(f"- {c}" for c in ALLOWED_COINS)
+
+    prompt = f"""
+You are an expert cryptocurrency analyst and personality profiler.
+
+A user answered a crypto personality quiz. Their answers:
+{formatted_answers}
+
+Based on these answers, determine their crypto investor personality.
+
+Return ONLY valid JSON.
+
+{{
+    "personality_type":"",
+    "description":"",
+    "coin_recommendations":[
+        {{"coin":"","reason":""}},
+        {{"coin":"","reason":""}},
+        {{"coin":"","reason":""}}
+    ]
+}}
+
+Rules
+
+personality_type:
+A short, memorable label of 2-4 words.
+
+description:
+2-3 sentences describing this investor type, written directly to the user.
+
+coin_recommendations:
+Exactly 3 coins.
+Each reason is 1-2 sentences explaining why it fits this personality.
+Do not recommend the same coin twice.
+
+You MUST choose coins ONLY from this list, spelled exactly as shown:
+{allowed}
+
+Do not invent coins outside this list.
+
+This is educational content, not financial advice.
+"""
+
+    response = groq.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    raw = clean_json(response.choices[0].message.content)
+
+    try:
+        result = json.loads(raw)
+
+    except Exception:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Groq returned invalid JSON:\n\n{raw}"
+        )
+
+    # The model can drift off the allowed list, so enforce it here.
+    by_name = {c.lower(): c for c in ALLOWED_COINS}
+
+    recommendations = []
+    seen = set()
+
+    for rec in result.get("coin_recommendations", []):
+
+        if not isinstance(rec, dict):
+            continue
+
+        key = str(rec.get("coin", "")).strip().lower()
+
+        if key not in by_name or key in seen:
+            continue
+
+        seen.add(key)
+
+        recommendations.append({
+            "coin": by_name[key],
+            "reason": str(rec.get("reason", ""))
+        })
+
+    return {
+        "personality_type": str(result.get("personality_type", "")),
+        "description": str(result.get("description", "")),
+        "coin_recommendations": recommendations[:3]
+    }
 
 
 if __name__ == "__main__":
