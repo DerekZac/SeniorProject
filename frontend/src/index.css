@@ -102,6 +102,20 @@ p, span, li, label, strong, button, a {
   .trending-grid { grid-template-columns: 56% 44%; gap: 5.5rem; }
 }
 
+.quiz-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+}
+.quiz-aside {
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+@media (min-width: 1024px) {
+  .quiz-grid { grid-template-columns: 1fr 20rem; gap: 3rem; }
+  .quiz-aside { padding-top: 0; padding-left: 3rem; border-top: none; border-left: 1px solid var(--border); }
+}
+
 /* ── Typography utilities ────────────────────────────────── */
 
 @layer utilities {

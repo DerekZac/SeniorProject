@@ -49,6 +49,13 @@ public class SentimentCacheService {
         return toMap(cache);
     }
 
+    public Optional<Map<String, Object>> getTopByMarketScore() {
+        return repository.findAll().stream()
+            .filter(c -> !c.isExpired())
+            .max(Comparator.comparingInt(CoinSentimentCache::getMarketScore))
+            .map(this::toMap);
+    }
+
     public List<Map<String, Object>> getAllCached() {
         return repository.findAll().stream()
             .filter(c -> !c.isExpired())

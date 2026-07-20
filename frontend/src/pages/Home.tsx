@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowUpRight, BookOpen, Store, Sparkles, Loader2, RotateCcw } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Store, Sparkles, Loader2, RotateCcw, TrendingUp } from 'lucide-react';
 import SearchBar from '../components/SearchBar';
 import TickerStrip from '../components/TickerStrip';
 import MarketOverview from '../components/MarketOverview';
@@ -157,6 +157,91 @@ const QUIZ_QUESTIONS: { question: string; options: string[] }[] = [
   },
 ];
 
+const JAVA_API = import.meta.env.VITE_API_URL || 'https://industrious-amazement-production.up.railway.app';
+
+type TopCoin = {
+  ticker: string;
+  coinName: string;
+  classification: string;
+  market_score: number;
+};
+
+const VERDICT_COLORS: Record<string, string> = {
+  bullish: '#00E676',
+  bearish: '#FF3355',
+};
+
+function CoinOfTheDay() {
+  const [coin, setCoin]       = useState<TopCoin | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+
+    fetch(`${JAVA_API}/api/sentiment-cache/top`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (alive && data?.success && data.data) setCoin(data.data as TopCoin);
+      })
+      .catch(() => { /* placeholder covers the failure case */ })
+      .finally(() => { if (alive) setLoading(false); });
+
+    return () => { alive = false; };
+  }, []);
+
+  const verdictColor = coin
+    ? VERDICT_COLORS[coin.classification?.toLowerCase()] ?? 'var(--text-muted)'
+    : 'var(--text-muted)';
+
+  return (
+    <div>
+      <p className="section-label" style={{ marginBottom: '1.25rem' }}>Coin of the Day</p>
+
+      {loading ? (
+        <div className="skeleton-row" style={{ height: '160px', borderRadius: '12px' }} />
+      ) : !coin ? (
+        <div style={{ background: 'var(--bg)', border: '1px dashed var(--border)', borderRadius: '12px', padding: '1.75rem 1.25rem', textAlign: 'center' }}>
+          <TrendingUp size={18} style={{ color: 'var(--border-hover)', margin: '0 auto 0.75rem', display: 'block' }} />
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+            Analyze a coin to see today's top pick
+          </p>
+        </div>
+      ) : (
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
+            <span className="num" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-strong)' }}>
+              {coin.ticker?.toUpperCase()}
+            </span>
+            <span className="truncate" style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+              {coin.coinName}
+            </span>
+          </div>
+
+          <p style={{ fontSize: '1.25rem', fontWeight: 700, color: verdictColor, marginBottom: '1.25rem', letterSpacing: '-0.01em' }}>
+            {coin.classification}
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', paddingTop: '1rem', borderTop: '1px solid var(--border)', marginBottom: '1.25rem' }}>
+            <span className="section-label">Market score</span>
+            <span className="num" style={{ fontSize: '1.0625rem', fontWeight: 700, color: verdictColor }}>
+              {coin.market_score > 0 ? '+' : ''}{coin.market_score}
+            </span>
+          </div>
+
+          <Link
+            to={`/results/${coin.ticker?.toLowerCase()}`}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', background: QUIZ_ACCENT, color: '#FFFFFF', borderRadius: '8px', padding: '0.625rem 1rem', fontSize: '0.8125rem', fontWeight: 600, textDecoration: 'none', transition: 'opacity 0.15s ease' }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          >
+            View Analysis <ArrowUpRight size={13} />
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type QuizResult = {
   personality_type: string;
   description: string;
@@ -171,12 +256,9 @@ function PersonalityQuiz() {
   const [error, setError]     = useState<string | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
 
-  const cardStyle: React.CSSProperties = {
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: '12px',
-    padding: '2rem',
-  };
+  // Card chrome lives on the section wrapper so the quiz and Coin of the Day
+  // share a single card — these panes are unstyled containers.
+  const cardStyle: React.CSSProperties = {};
 
   async function submit(finalAnswers: string[]) {
     setStage('loading');
@@ -254,7 +336,7 @@ function PersonalityQuiz() {
   // ── Loading ──
   if (stage === 'loading') {
     return (
-      <div style={{ ...cardStyle, textAlign: 'center', padding: '4rem 2rem' }}>
+      <div style={{ textAlign: 'center', padding: '3.5rem 0' }}>
         <Loader2 size={22} style={{ color: QUIZ_ACCENT, margin: '0 auto 1rem', display: 'block' }} className="animate-spin" />
         <p style={{ fontSize: '0.9375rem', color: 'var(--text-strong)', marginBottom: '0.375rem' }}>Analyzing your answers…</p>
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>This usually takes a few seconds.</p>
@@ -609,7 +691,17 @@ export default function Home() {
       <section style={{ padding: '4.5rem 0' }}>
         <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1.5rem' }}>
           <SectionRule label="Discover Your Style" />
-          <PersonalityQuiz />
+
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '2rem' }}>
+            <div className="quiz-grid">
+              <div style={{ minWidth: 0 }}>
+                <PersonalityQuiz />
+              </div>
+              <div className="quiz-aside">
+                <CoinOfTheDay />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
