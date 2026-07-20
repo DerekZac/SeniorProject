@@ -17,7 +17,7 @@ export interface PaperTrade {
   date: string;
 }
 
-interface PaperState {
+export interface PaperState {
   cash: number;
   positions: Record<string, PaperPosition>;
   trades: PaperTrade[];
@@ -33,6 +33,46 @@ const PaperContext = createContext<PaperContextValue | null>(null);
 const STORAGE_KEY = 'crypton_paper';
 
 const INITIAL: PaperState = { cash: STARTING_CASH, positions: {}, trades: [] };
+
+// ─── Pure trade reducers (exported for testing) ───────────────────────────────
+
+export function applyBuy(state: PaperState, ticker: string, qty: number, priceUsd: number): { state: PaperState; error: string | null } {
+  if (qty <= 0 || priceUsd <= 0) return { state, error: 'Enter a valid quantity.' };
+  const cost = qty * priceUsd;
+  if (cost > state.cash) return { state, error: 'Not enough cash for this trade.' };
+
+  const pos = state.positions[ticker];
+  const newQty = (pos?.qty ?? 0) + qty;
+  const newAvg = ((pos?.qty ?? 0) * (pos?.avgCostUsd ?? 0) + cost) / newQty;
+  return {
+    state: {
+      cash: state.cash - cost,
+      positions: { ...state.positions, [ticker]: { ticker, qty: newQty, avgCostUsd: newAvg } },
+      trades: [{ id: crypto.randomUUID(), ticker, side: 'buy', qty, priceUsd, date: new Date().toISOString() }, ...state.trades],
+    },
+    error: null,
+  };
+}
+
+export function applySell(state: PaperState, ticker: string, qty: number, priceUsd: number): { state: PaperState; error: string | null } {
+  const pos = state.positions[ticker];
+  if (!pos || pos.qty <= 0) return { state, error: 'You do not hold this coin.' };
+  if (qty <= 0) return { state, error: 'Enter a valid quantity.' };
+  if (qty > pos.qty + 1e-12) return { state, error: 'You cannot sell more than you hold.' };
+
+  const remaining = pos.qty - qty;
+  const positions = { ...state.positions };
+  if (remaining <= 1e-9) delete positions[ticker];
+  else positions[ticker] = { ...pos, qty: remaining };
+  return {
+    state: {
+      cash: state.cash + qty * priceUsd,
+      positions,
+      trades: [{ id: crypto.randomUUID(), ticker, side: 'sell', qty, priceUsd, date: new Date().toISOString() }, ...state.trades],
+    },
+    error: null,
+  };
+}
 
 function load(): PaperState {
   try {
@@ -52,42 +92,15 @@ export function PaperTradingProvider({ children }: { children: ReactNode }) {
 
   /** Returns an error message string, or null on success. */
   const buy = (ticker: string, qty: number, priceUsd: number): string | null => {
-    if (qty <= 0 || priceUsd <= 0) return 'Enter a valid quantity.';
-    const cost = qty * priceUsd;
-    if (cost > state.cash) return 'Not enough cash for this trade.';
-
-    setState(prev => {
-      const pos = prev.positions[ticker];
-      const newQty = (pos?.qty ?? 0) + qty;
-      const newAvg = ((pos?.qty ?? 0) * (pos?.avgCostUsd ?? 0) + cost) / newQty;
-      return {
-        cash: prev.cash - cost,
-        positions: { ...prev.positions, [ticker]: { ticker, qty: newQty, avgCostUsd: newAvg } },
-        trades: [{ id: crypto.randomUUID(), ticker, side: 'buy', qty, priceUsd, date: new Date().toISOString() }, ...prev.trades],
-      };
-    });
-    return null;
+    const { state: next, error } = applyBuy(state, ticker, qty, priceUsd);
+    if (!error) setState(next);
+    return error;
   };
 
   const sell = (ticker: string, qty: number, priceUsd: number): string | null => {
-    const pos = state.positions[ticker];
-    if (!pos || pos.qty <= 0) return 'You do not hold this coin.';
-    if (qty <= 0) return 'Enter a valid quantity.';
-    if (qty > pos.qty + 1e-12) return 'You cannot sell more than you hold.';
-
-    setState(prev => {
-      const p = prev.positions[ticker];
-      const remaining = p.qty - qty;
-      const positions = { ...prev.positions };
-      if (remaining <= 1e-9) delete positions[ticker];
-      else positions[ticker] = { ...p, qty: remaining };
-      return {
-        cash: prev.cash + qty * priceUsd,
-        positions,
-        trades: [{ id: crypto.randomUUID(), ticker, side: 'sell', qty, priceUsd, date: new Date().toISOString() }, ...prev.trades],
-      };
-    });
-    return null;
+    const { state: next, error } = applySell(state, ticker, qty, priceUsd);
+    if (!error) setState(next);
+    return error;
   };
 
   const reset = () => setState(INITIAL);

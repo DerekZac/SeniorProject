@@ -43,7 +43,7 @@ function load(): Transaction[] {
  * average-cost method: buys add qty and cost; sells reduce qty and cost
  * proportionally (so avg cost stays stable and realized P/L isn't double-counted).
  */
-function deriveHoldings(txns: Transaction[]): Holding[] {
+export function deriveHoldings(txns: Transaction[]): Holding[] {
   const byTicker = new Map<string, { qty: number; cost: number }>();
   // Oldest first so average cost builds correctly.
   const ordered = [...txns].sort((a, b) => a.date.localeCompare(b.date));

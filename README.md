@@ -23,15 +23,21 @@ Crypton is a full-stack cryptocurrency analytics platform built as a Senior Caps
 
 - 📈 Live cryptocurrency prices from CoinGecko
 - 🔍 Search over thousands of cryptocurrencies
-- 📊 Interactive 7-day price history charts
+- 📊 Advanced price + volume charts with 24H / 7D / 30D / 1Y / Max ranges
+- 🤖 AI market sentiment (Gemini) — Bullish/Neutral/Bearish with catalysts & risks
+- 💼 **Portfolio tracker** — transactions, average-cost holdings, live P/L, allocation donut
+- 🎮 **Paper trading** — $100k virtual cash, live-price order fills, positions & P/L
+- 🔔 **Price alerts** — above/below targets polled live, with browser notifications
+- 🌍 **Market overview** — global market cap, BTC/ETH dominance, top gainers & losers
+- 🧮 Historical DCA calculator, crypto/fiat converter, and tax estimator
+- 📰 Crypto news with source/keyword filters and saved-article bookmarks
+- 💱 Multi-currency display (USD, EUR, GBP, JPY, BTC, ETH, and more)
+- 📤 CSV export for watchlist, portfolio, and trade history
 - ⚖️ Side-by-side cryptocurrency comparison
 - ⭐ Personal watchlist with persistent storage
-- 📰 Aggregated crypto news from trusted RSS feeds
-- 🔐 Multi-Factor Authentication (TOTP)
+- 🔐 Multi-Factor Authentication (TOTP) with brute-force lockout
 - 👤 User profiles with search history
-- 🌙 Dark/Light theme support
-- 📱 Fully responsive interface
-- ⚡ REST API architecture ready for Spring Boot backend integration
+- 🌙 Dark/Light theme support and a fully responsive interface
 
 ---
 
@@ -106,7 +112,8 @@ Create a `.env` file from `.env.example`.
 
 | Variable | Description |
 |----------|-------------|
-| VITE_API_URL | Backend REST API URL |
+| VITE_API_URL | Java/Spring backend URL (accounts, watchlist, AI sentiment cache) |
+| VITE_PYTHON_API_URL | Python/FastAPI Gemini service URL (AI `/classify`) |
 | VITE_APP_NAME | Application name |
 
 ---
@@ -130,6 +137,13 @@ npm run preview
 ```
 
 Runs the production build locally.
+
+```bash
+npm test
+```
+
+Runs the Vitest unit suite (CSV export, portfolio average-cost math, and
+paper-trading buy/sell logic). Also runs in CI on every push and PR.
 
 ---
 
@@ -214,13 +228,11 @@ SeniorProject/
 
 ## Future Enhancements
 
-- AI market prediction
-- Portfolio tracking
-- TradingView integration
-- Mobile application
-- Price alerts
-- Cloud deployment
-- Social sentiment analysis
+- Server-side session tokens so per-user endpoints are authenticated
+- TradingView-grade charting
+- Native mobile application
+- Installable PWA with offline support
+- Wider automated test coverage (component/E2E)
 
 ---
 
