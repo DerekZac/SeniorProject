@@ -1,6 +1,10 @@
 package com.crypton.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +35,11 @@ public class CoinGeckoController {
     private static final long CACHE_TTL_MS = 60_000L;
 
     private final RestTemplate restTemplate = new RestTemplate();
+
+    // CoinGecko demo API key, sent on every upstream request. Falls back to a
+    // shared demo key if the COINGECKO_API_KEY env var is not set.
+    @Value("${COINGECKO_API_KEY:CG-drzYBvpsrqhg8983vdiJHv74}")
+    private String coinGeckoApiKey;
 
     /** A cached upstream response together with the time it was stored. */
     private record CachedResponse(ResponseEntity<String> response, long storedAt) {
@@ -73,7 +82,10 @@ public class CoinGeckoController {
         }
 
         try {
-            ResponseEntity<String> upstream = restTemplate.getForEntity(url, String.class);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("x-cg-demo-api-key", coinGeckoApiKey);
+            ResponseEntity<String> upstream = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
             ResponseEntity<String> response = ResponseEntity.status(upstream.getStatusCode())
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(upstream.getBody());
