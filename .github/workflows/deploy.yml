@@ -36,6 +36,10 @@ jobs:
         working-directory: frontend
         env:
           NODE_ENV: production
+          # Vite inlines VITE_* at build time. frontend/.env is gitignored, so these
+          # must come from repo variables or the deployed bundle points nowhere.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_PYTHON_API_URL: ${{ vars.VITE_PYTHON_API_URL }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

@@ -3,7 +3,11 @@ import { logger } from './logger';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+// Vite inlines this at BUILD time, so it must be present in the deploy workflow's
+// env — not just in the local .env, which is gitignored. The Railway default keeps
+// the GitHub Pages build working when the variable is absent, matching the same
+// fallback api.ts uses for the market-data endpoints.
+const API_URL = import.meta.env.VITE_API_URL || 'https://industrious-amazement-production.up.railway.app';
 const USE_BACKEND = API_URL !== '';
 
 /**
