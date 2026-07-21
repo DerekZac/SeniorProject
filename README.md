@@ -46,7 +46,6 @@
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
-- [Screenshots](#screenshots)
 - [Installation](#installation)
 - [Environment Variables](#environment-variables)
 - [Available Scripts](#available-scripts)
