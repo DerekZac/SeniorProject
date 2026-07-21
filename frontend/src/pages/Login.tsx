@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { loginStep1, loginStep2, type StoredUser } from '../lib/auth';
+import { loginStep1, loginStep2, AuthServiceError, type StoredUser } from '../lib/auth';
 import { useAuth } from '../context/AuthContext';
 import { logger } from '../lib/logger';
 import {
@@ -45,7 +45,13 @@ export default function Login() {
       logger.info('auth', 'Credentials verified', { username });
       setPendingUser(user);
       setStep('mfa');
-    } catch {
+    } catch (err) {
+      // An outage is not a failed credential — don't spend a lockout attempt on it.
+      if (err instanceof AuthServiceError) {
+        logger.error('auth', 'Login unavailable — account service unreachable', { username });
+        setError(err.message);
+        return;
+      }
       recordFailedAttempt(username);
       const left = getRemainingAttempts(username);
       logger.warn('security', 'Failed login attempt', { username, attemptsLeft: left });
@@ -67,11 +73,16 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      loginStep2(pendingUser, mfaToken);
+      await loginStep2(pendingUser, mfaToken);
       logger.info('auth', 'MFA verified — login complete', { username: pendingUser.username });
       refresh();
       navigate(from, { replace: true });
-    } catch {
+    } catch (err) {
+      if (err instanceof AuthServiceError) {
+        logger.error('auth', 'MFA unavailable — account service unreachable', { username: pendingUser.username });
+        setError(err.message);
+        return;
+      }
       logger.warn('security', 'MFA code rejected', { username: pendingUser.username });
       setError('Invalid authenticator code. Check your app and try again.');
       setMfaToken('');

@@ -31,7 +31,7 @@ export default function App() {
       <AppProvider>
         <FeatureProviders>
           <Router basename={import.meta.env.BASE_URL}>
-            <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+            <div className="min-h-scre1en" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
               <Navbar />
               <Routes>
                 {/* Public routes */}

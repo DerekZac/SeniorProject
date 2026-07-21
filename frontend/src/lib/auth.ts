@@ -6,6 +6,64 @@ import { logger } from './logger';
 const API_URL = import.meta.env.VITE_API_URL || '';
 const USE_BACKEND = API_URL !== '';
 
+/**
+ * The account service could not be reached or gave an unusable response. Distinct
+ * from a credential rejection: callers should not count this against login
+ * lockout, because the user may well have typed the right password.
+ */
+export class AuthServiceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthServiceError';
+  }
+}
+
+/**
+ * POST to the auth backend. Registration and login go through this exclusively —
+ * there is no local fallback, so a backend that is down surfaces as an error the
+ * user sees rather than an account that only exists in this browser.
+ */
+async function postAuth<T>(path: string, body: unknown): Promise<T> {
+  if (!USE_BACKEND) {
+    throw new AuthServiceError('Account service is not configured. Please contact support.');
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
+  } catch (e: unknown) {
+    logger.error('auth', `Auth request to ${path} could not reach the backend`, {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    throw new AuthServiceError('Could not reach the account service. Check your connection and try again.');
+  }
+
+  // A 502/504 from Railway returns HTML, so never assume the body is JSON.
+  let data: { success?: boolean; message?: string } & Record<string, unknown>;
+  try {
+    data = await res.json();
+  } catch {
+    logger.error('auth', `Auth request to ${path} returned a non-JSON response`, { status: res.status });
+    throw new AuthServiceError('The account service returned an unexpected response. Please try again shortly.');
+  }
+
+  // 5xx is the service failing, not the user's credentials being wrong.
+  if (res.status >= 500) {
+    logger.error('auth', `Auth request to ${path} failed server-side`, { status: res.status });
+    throw new AuthServiceError('The account service is temporarily unavailable. Please try again shortly.');
+  }
+
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || 'The account service rejected the request. Please try again.');
+  }
+
+  return data as T;
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface StoredUser {
@@ -62,12 +120,6 @@ async function hashPassword(
     hash: btoa(String.fromCharCode(...new Uint8Array(bits))),
     salt: btoa(String.fromCharCode(...salt)),
   };
-}
-
-async function verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
-  const saltBytes = Uint8Array.from(atob(salt), c => c.charCodeAt(0));
-  const result = await hashPassword(password, saltBytes);
-  return result.hash === hash;
 }
 
 // ── Local storage ─────────────────────────────────────────────────────────────
@@ -175,113 +227,38 @@ export async function register(
     throw new Error('Password must be at least 8 characters.');
   }
 
-  if (USE_BACKEND) {
-    try {
-      const res = await fetch(`${API_URL}/api/auth/register`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ username, email, password, mfaSecret, mfaToken }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
-      logger.info('auth', 'Registered via backend', { username });
-      return persistSession(username, email, true);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg && !msg.includes('fetch') && !msg.includes('Failed') && !msg.includes('NetworkError')) {
-        throw new Error(msg);
-      }
-      logger.warn('auth', 'Backend register failed, falling back to local', { error: msg });
-    }
-  }
-
-  const users = loadUsers();
-  if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
-    throw new Error('Username is already taken.');
-  }
-  if (!verifyTOTP(mfaSecret, mfaToken)) {
-    throw new Error('Invalid authenticator code. Make sure your app clock is synced.');
-  }
-
-  const { hash, salt } = await hashPassword(password);
-  const user: StoredUser = {
-    username,
-    email,
-    passwordHash: hash,
-    passwordSalt: salt,
-    mfaEnabled:   true,
-    mfaSecret,
-    createdAt:    new Date().toISOString(),
-  };
-
-  saveUsers([...users, user]);
-  logger.info('auth', 'Registered locally', { username });
+  await postAuth('/api/auth/register', { username, email, password, mfaSecret, mfaToken });
+  logger.info('auth', 'Registered via backend', { username });
   return persistSession(username, email, true);
 }
 
 // ── Login Step 1 ──────────────────────────────────────────────────────────────
 
 export async function loginStep1(username: string, password: string): Promise<StoredUser> {
-  if (USE_BACKEND) {
-    try {
-      const res = await fetch(`${API_URL}/api/auth/login/step1`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ username, password }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
-      logger.info('auth', 'Step1 verified via backend', { username });
-      return {
-        username: data.username,
-        email:    '',
-        passwordHash: '',
-        passwordSalt: '',
-        mfaEnabled: data.requiresMfa,
-        createdAt: new Date().toISOString(),
-      };
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg && !msg.includes('fetch') && !msg.includes('Failed') && !msg.includes('NetworkError')) {
-        throw new Error(msg);
-      }
-      logger.warn('auth', 'Backend step1 failed, falling back to local', { error: msg });
-    }
-  }
-
-  const user = findUser(username);
-  if (!user) throw new Error('Invalid credentials');
-  const ok = await verifyPassword(password, user.passwordHash, user.passwordSalt);
-  if (!ok) throw new Error('Invalid credentials');
-  return user;
+  const data = await postAuth<{ username: string; requiresMfa: boolean }>(
+    '/api/auth/login/step1',
+    { username, password }
+  );
+  logger.info('auth', 'Step1 verified via backend', { username });
+  return {
+    username: data.username,
+    email:    '',
+    passwordHash: '',
+    passwordSalt: '',
+    mfaEnabled: data.requiresMfa,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 // ── Login Step 2 ──────────────────────────────────────────────────────────────
 
 export async function loginStep2(user: StoredUser, token: string): Promise<Session> {
-  if (USE_BACKEND) {
-    try {
-      const res = await fetch(`${API_URL}/api/auth/login/step2`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ username: user.username, mfaToken: token }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message);
-      logger.info('auth', 'MFA verified via backend', { username: user.username });
-      return persistSession(data.user.username, data.user.email || '', true);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg && !msg.includes('fetch') && !msg.includes('Failed') && !msg.includes('NetworkError')) {
-        throw new Error(msg);
-      }
-      logger.warn('auth', 'Backend step2 failed, falling back to local', { error: msg });
-    }
-  }
-
-  if (!user.mfaSecret) throw new Error('MFA not configured');
-  if (!verifyTOTP(user.mfaSecret, token)) throw new Error('Invalid authenticator code');
-  return persistSession(user.username, user.email, user.mfaEnabled);
+  const data = await postAuth<{ user: { username: string; email?: string } }>(
+    '/api/auth/login/step2',
+    { username: user.username, mfaToken: token }
+  );
+  logger.info('auth', 'MFA verified via backend', { username: user.username });
+  return persistSession(data.user.username, data.user.email || '', true);
 }
 
 // ── Reset Password ────────────────────────────────────────────────────────────
